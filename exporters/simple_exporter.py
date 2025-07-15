@@ -73,34 +73,76 @@ class SimpleExporter(BaseExporter):
     
     def _collect_all_data_sources(self, conversations: Dict[str, List[Dict]]) -> Dict[str, str]:
         """
-        Collecte et unifie TOUTES les sources de données :
-        1. Messages des conversations HTML
-        2. Transcriptions depuis TranscriptionReader
+        Collecte et unifie TOUTES les sources de données:
+        1. REGISTRE UNIFIÉ (source de vérité principale)
+        2. Messages des conversations HTML
         3. Fichiers conversation.json orphelins
         4. Dossiers avec transcriptions mais sans conversations
         """
         logger.info("Collecte unifiée de TOUTES les sources de données...")
         
-        # Dictionnaire unifié {contact: contenu}
+        # COMMENCER par le registre (source de vérité)
         unified_data = {}
         
         # Statistiques
         stats = {
-            'contacts_html': 0,
-            'contacts_transcriptions_only': 0,
+            'contacts_registry': 0,
+            'contacts_html': 0, 
             'contacts_json_only': 0,
+            'contacts_transcriptions_only': 0,
             'total_messages': 0,
             'total_audios': 0,
             'total_transcribed': 0,
             'contacts_without_content': 0
         }
         
-        # ÉTAPE 1: Traiter les conversations HTML
-        logger.info("1. Traitement des conversations HTML...")
+        # ÉTAPE 1: Charger d'ABORD les transcriptions du registre
+        logger.info("1. Chargement des transcriptions depuis le REGISTRE UNIFIÉ...")
+        registry_data = {}
+        
+        # Si le registre existe et contient des données
+        if hasattr(self.registry, 'data') and self.registry.data:
+            # 1a. Parcourir toutes les transcriptions
+            for file_hash, trans_info in self.registry.data.get('transcriptions', {}).items():
+                # Retrouver le fichier d'origine pour ce hash
+                file_info = self.registry.data.get('files', {}).get(file_hash, {})
+                if file_info:
+                    contact = file_info.get('contact')
+                    direction = file_info.get('direction')
+                    
+                    # On ne garde que les messages reçus
+                    if contact and direction == 'received':
+                        text = trans_info.get('text', '')
+                        if text and len(text) > 10:  # Ignorer textes trop courts (prob. erreurs)
+                            if contact not in registry_data:
+                                registry_data[contact] = []
+                                stats['contacts_registry'] += 1
+                            registry_data[contact].append(f"[AUDIO] {text}")
+                            stats['total_transcribed'] += 1
+        
+            # Convertir les listes en texte unifié
+            for contact, messages in registry_data.items():
+                if messages:
+                    unified_data[contact] = " ".join(messages)
+                else:
+                    unified_data[contact] = "[Aucun message reçu]"
+                    stats['contacts_without_content'] += 1
+        
+        logger.info(f"1. ✓ {stats['contacts_registry']} contacts avec transcriptions depuis le registre")
+        logger.info(f"   - Transcriptions trouvées: {stats['total_transcribed']}")
+        
+        # ÉTAPE 2: Ajouter les messages texte des conversations HTML
+        logger.info("2. Ajout des messages texte depuis les conversations HTML...")
         for contact, messages in conversations.items():
             contact_content = []
             has_received = False
             
+            # Préparer le contenu existant s'il y en a
+            existing_content = unified_data.get(contact, "")
+            if existing_content and existing_content != "[Aucun message reçu]":
+                contact_content = [existing_content]
+            
+            # Ajouter uniquement les messages texte reçus
             for msg in messages:
                 if msg.get('direction') == 'received':
                     has_received = True
@@ -110,56 +152,36 @@ class SimpleExporter(BaseExporter):
                         content = msg.get('content', '').strip()
                         if content:
                             contact_content.append(content)
-                            
+                    
+                    # NOTE: On ignore les audios ici car déjà traités par le registre
                     elif msg.get('type') == 'audio':
                         stats['total_audios'] += 1
-                        # Chercher la transcription via TranscriptionReader
-                        transcription = self._get_audio_transcription(msg, contact)
-                        
-                        if transcription:
-                            contact_content.append(f"[AUDIO] {transcription}")
-                            stats['total_transcribed'] += 1
-                        else:
-                            # Essayer de trouver via d'autres méthodes
-                            transcription = self._find_transcription_alternative(msg, contact)
-                            if transcription:
-                                contact_content.append(f"[AUDIO] {transcription}")
-                                stats['total_transcribed'] += 1
-                            else:
-                                contact_content.append("[AUDIO non transcrit]")
             
-            # Ajouter le contact même sans messages reçus
-            if contact_content:
-                unified_data[contact] = " ".join(contact_content)
-            else:
-                unified_data[contact] = "[Aucun message reçu]"
-                if not has_received:
+            # Sauvegarder uniquement si on a des messages reçus
+            if has_received:
+                stats['contacts_html'] += 1
+                if contact_content:
+                    unified_data[contact] = " ".join(contact_content)
+                elif contact not in unified_data:
+                    unified_data[contact] = "[Aucun message reçu]"
                     stats['contacts_without_content'] += 1
-            
-            stats['contacts_html'] += 1
         
-        # ÉTAPE 2: Scanner TOUS les dossiers pour trouver les contacts manquants
-        logger.info("2. Scan des dossiers pour contacts manquants...")
-        contacts_added_from_folders = self._scan_for_missing_contacts(unified_data, stats)
+        logger.info(f"2. ✓ {stats['contacts_html']} contacts traités depuis HTML")
+        logger.info(f"   - Messages texte: {stats['total_messages'] - stats['total_audios']}")
         
-        # ÉTAPE 3: Intégrer les transcriptions orphelines
-        logger.info("3. Intégration des transcriptions orphelines...")
-        self._integrate_orphan_transcriptions(unified_data, stats)
+        # ÉTAPE 3: Scanner les dossiers pour contacts manquants
+        logger.info("3. Recherche de contacts manquants...")
+        self._scan_for_missing_contacts(unified_data, stats)
         
-        # Afficher les statistiques
-        logger.info("="*60)
-        logger.info("STATISTIQUES DE COLLECTE UNIFIÉE:")
-        logger.info(f"  - Contacts depuis HTML: {stats['contacts_html']}")
-        logger.info(f"  - Contacts ajoutés (transcriptions seules): {stats['contacts_transcriptions_only']}")
-        logger.info(f"  - Contacts ajoutés (JSON seuls): {stats['contacts_json_only']}")
-        logger.info(f"  - TOTAL contacts: {len(unified_data)}")
-        logger.info(f"  - Total messages texte: {stats['total_messages']}")
-        logger.info(f"  - Total audios: {stats['total_audios']}")
-        logger.info(f"  - Audios transcrits: {stats['total_transcribed']}")
-        if stats['total_audios'] > 0:
-            rate = (stats['total_transcribed'] / stats['total_audios']) * 100
-            logger.info(f"  - Taux de transcription: {rate:.1f}%")
-        logger.info("="*60)
+        # RAPPORT FINAL
+        logger.info(f"===== DONNÉES COLLECTÉES =====")
+        logger.info(f"Contacts depuis registre: {stats['contacts_registry']}")
+        logger.info(f"Contacts HTML: {stats['contacts_html']}")
+        logger.info(f"Contacts JSON seulement: {stats['contacts_json_only']}")
+        logger.info(f"Contacts avec transcriptions seulement: {stats['contacts_transcriptions_only']}")
+        logger.info(f"TOTAL CONTACTS: {len(unified_data)}")
+        logger.info(f"Messages texte: {stats['total_messages'] - stats['total_audios']}")
+        logger.info(f"Messages audio: {stats['total_audios']} dont {stats['total_transcribed']} transcrits")
         
         return unified_data
     

@@ -36,10 +36,13 @@ class Diagnostic:
         # 3. Vérifier les transcriptions
         self._check_transcriptions()
         
-        # 4. Statistiques
+        # 4. Vérifier la sanitization des noms et l'accès au registre
+        self._check_sanitization_and_registry()
+        
+        # 5. Statistiques
         self._show_statistics()
         
-        # 5. Recommandations
+        # 6. Recommandations
         self._show_recommendations()
     
     def _check_registry_integrity(self):
@@ -154,6 +157,89 @@ class Diagnostic:
             logger.info(f"  - Fichiers audio: {stats.get('audio_files', 0)}")
             logger.info(f"  - Transcrits: {stats.get('transcribed_files', 0)}")
     
+    def _check_sanitization_and_registry(self):
+        """Vérifie la sanitization des noms et l'accès au registre"""
+        logger.info("\n--- VÉRIFICATION DES AMÉLIORATIONS ---")
+        
+        # 1. Vérifier la sanitization des noms de contacts
+        from core.file_manager import FileManager
+        import re
+        import os
+        
+        # Tests de sanitization
+        test_contacts = [
+            "Contact avec un nom très long qui dépasse largement la limite précédente de 20 caractères",
+            "06 12 34 56 78 - Jean Dupont (Cousin)",
+            "♥♦♣♠ Émojis et Caractères Spéciaux ☺☻☹",
+            "Contact@with.email-address",
+            "Client_2025-06_22_numéro_important"  
+        ]
+        
+        logger.info("1. Test de sanitization des noms:")
+        for test in test_contacts:
+            sanitized = self.file_manager.sanitize_filename(test)
+            logger.info(f"  Original: '{test}'")
+            logger.info(f"  Sanitizé: '{sanitized}'")
+            logger.info(f"  Longueur: {len(sanitized)} caractères")
+            
+            # Vérifier qu'on ne retourne pas "contact_hash"
+            if sanitized.startswith("contact_") and len(sanitized) < 20:
+                logger.error(f"  ⚠️ PROBLÈME: Format contact_hash détecté!")
+            else:
+                logger.info(f"  ✓ OK: Format long conservé")
+        
+        # 2. Tester l'accès aux données du registre
+        logger.info("\n2. Test d'accès au registre:")
+        
+        # Compter les contacts dans le registre
+        registry_contacts = set()
+        
+        # Parcourir les fichiers audio
+        for file_hash, file_info in self.registry.data.get('files', {}).items():
+            if file_info.get('type') == 'audio' and file_info.get('contact'):
+                registry_contacts.add(file_info.get('contact'))
+        
+        # Compter les transcriptions par contact
+        trans_by_contact = {}
+        for file_hash, trans_info in self.registry.data.get('transcriptions', {}).items():
+            # Retrouver le fichier d'origine
+            file_info = self.registry.data.get('files', {}).get(file_hash, {})
+            if file_info and 'contact' in file_info:
+                contact = file_info.get('contact')
+                if contact not in trans_by_contact:
+                    trans_by_contact[contact] = 0
+                trans_by_contact[contact] += 1
+        
+        # Afficher les stats
+        logger.info(f"Contacts trouvés dans le registre: {len(registry_contacts)}")
+        logger.info(f"Contacts avec transcriptions: {len(trans_by_contact)}")
+        
+        # Afficher le top 5 des contacts avec le plus de transcriptions
+        if trans_by_contact:
+            logger.info("\nTop 5 des contacts avec le plus de transcriptions:")
+            sorted_contacts = sorted(trans_by_contact.items(), key=lambda x: x[1], reverse=True)[:5]
+            for contact, count in sorted_contacts:
+                logger.info(f"  - {contact}: {count} transcriptions")
+                
+        # Vérifier s'il existe des collisions (contact_hash)
+        collision_pattern = re.compile(r"contact_[0-9a-f]{8}")
+        collisions = [c for c in registry_contacts if collision_pattern.match(c)]
+        
+        if collisions:
+            logger.error(f"⚠️ PROBLÈME: {len(collisions)} contacts avec format contact_hash détectés!")
+            logger.error("Ces contacts risquent de se chevaucher et perdre des données!")
+            # Afficher quelques exemples
+            for c in collisions[:5]:
+                logger.error(f"  - {c}")
+        else:
+            logger.info("✓ Aucune collision de type contact_hash détectée")
+        
+        # Vérifier si le registre contient bien des données
+        if not self.registry.data.get('transcriptions'):
+            logger.warning("⚠️ Le registre ne contient pas de transcriptions!")
+        else:
+            logger.info(f"✓ Le registre contient {len(self.registry.data.get('transcriptions', {}))} transcriptions")
+
     def _show_recommendations(self):
         """Affiche des recommandations"""
         logger.info("\n--- RECOMMANDATIONS ---")
@@ -173,6 +259,20 @@ class Diagnostic:
         if audio_files and transcribed < len(audio_files):
             missing = len(audio_files) - transcribed
             recommendations.append(f"{missing} fichiers audio non transcrits")
+            
+        # Nouvelles recommandations
+        from pathlib import Path
+        import re
+        
+        # Vérifier les noms de dossiers avec contact_hash
+        output_dir = self.config.get('Paths', 'output_dir')
+        all_dirs = [d for d in Path(output_dir).iterdir() if d.is_dir() and not d.name.startswith('.')]
+        collision_pattern = re.compile(r"contact_[0-9a-f]{8}")
+        hash_dirs = [d for d in all_dirs if collision_pattern.match(d.name)]
+        
+        if hash_dirs:
+            recommendations.append(f"{len(hash_dirs)} dossiers avec format contact_hash existent déjà")
+            recommendations.append("Envisager de regénérer ces dossiers avec le nouveau format")
         
         # Afficher les recommandations
         if recommendations:

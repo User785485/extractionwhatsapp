@@ -219,21 +219,18 @@ class FileManager:
         import re
         import hashlib
         
-        # Supprimer TOUS caracteres speciaux
-        # Garder SEULEMENT: lettres, chiffres
-        clean = re.sub(r'[^a-zA-Z0-9]', '_', filename)
+        # Garder plus de caractères: lettres, chiffres, tirets, espaces
+        clean = re.sub(r'[^a-zA-Z0-9\-_ ]', '_', filename)
         
-        # Limiter longueur a 20 caracteres MAX
-        if len(clean) > 20:
-            # Utiliser hash pour garantir unicite
-            hash_part = hashlib.md5(filename.encode()).hexdigest()[:8]
-            clean = f"contact_{hash_part}"
+        # AUGMENTER la limite à 100 caractères (au lieu de 20)
+        clean = clean[:100].strip()
         
-        # Si vide, generer nom
+        # Si vide après nettoyage, générer un nom
         if not clean or clean == '_':
             import time
             clean = f"contact_{int(time.time()) % 10000}"
         
+        # Retourner le nom sans hash qui écrase tout
         return clean
     
     def extract_period_from_filename(self, filename: str) -> str:
