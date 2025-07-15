@@ -17,7 +17,7 @@ from config import Config
 from utils import setup_logging, check_disk_space, format_size
 from core import UnifiedRegistry, FileManager
 from processors import HTMLParser, MediaOrganizer, AudioProcessor, Transcriber
-from exporters import TextExporter, CSVExporter, TranscriptionMerger, FocusedCSVExporter
+from exporters import TextExporter, CSVExporter, TranscriptionMerger, FocusedCSVExporter, SimpleExporter
 
 def main():
     """Point d'entrée principal"""
@@ -32,7 +32,8 @@ def main():
     parser.add_argument('--no-transcription', action='store_true', help='Désactiver la transcription')
     parser.add_argument('--incremental', action='store_true', help='Mode incrémental')
     parser.add_argument('--full', action='store_true', help='Mode complet (retraiter tout)')
-    parser.add_argument('--limit', type=int, help='Limiter le nombre de fichiers/messages (pour tests)')
+    parser.add_argument('--limit', type=int, help='Limiter le nombre de fichiers/messages (pour tests)
+    parser.add_argument('--simple-export', action='store_true', help='Export simple (CSV et TXT avec 2 colonnes seulement)')')
     
     args = parser.parse_args()
     
@@ -202,7 +203,26 @@ def main():
     logger.info("PHASE 5: EXPORT")
     logger.info("="*60)
     
-    # ORDRE CORRIGÉ :
+    # Mode export simple (NOUVEAU)
+    if args.simple_export:
+        logger.info("Mode export SIMPLE activé")
+        simple_exporter = SimpleExporter(config, registry, file_manager)
+        success = simple_exporter.export_simple(conversations)
+        
+        if success:
+            logger.info("Export simple terminé avec succès!")
+            # Afficher les fichiers créés
+            for filename in ['export_simple.csv', 'export_simple.txt', 'export_simple.xlsx']:
+                filepath = os.path.join(output_dir, filename)
+                if os.path.exists(filepath):
+                    size = os.path.getsize(filepath)
+                    logger.info(f"  - {filename}: {format_size(size)}")
+        else:
+            logger.error("Erreur lors de l'export simple")
+    
+    # Mode export standard (ANCIEN)
+    else:
+        # ORDRE CORRIGÉ :
     
     # 1. D'ABORD exporter les textes de base (SANS transcriptions)
     text_exporter = TextExporter(config, registry, file_manager)
