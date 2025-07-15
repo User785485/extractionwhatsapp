@@ -1,0 +1,1 @@
+"""GUI package for WhatsApp Extractor v2"""
