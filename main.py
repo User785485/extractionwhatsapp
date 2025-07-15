@@ -32,8 +32,8 @@ def main():
     parser.add_argument('--no-transcription', action='store_true', help='Désactiver la transcription')
     parser.add_argument('--incremental', action='store_true', help='Mode incrémental')
     parser.add_argument('--full', action='store_true', help='Mode complet (retraiter tout)')
-    parser.add_argument('--limit', type=int, help='Limiter le nombre de fichiers/messages (pour tests)
-    parser.add_argument('--simple-export', action='store_true', help='Export simple (CSV et TXT avec 2 colonnes seulement)')')
+    parser.add_argument('--limit', type=int, help='Limiter le nombre de fichiers/messages (pour tests)')
+    parser.add_argument('--simple-export', action='store_true', help='Export simple (CSV et TXT avec 2 colonnes seulement)')
     
     args = parser.parse_args()
     
@@ -219,26 +219,25 @@ def main():
                     logger.info(f"  - {filename}: {format_size(size)}")
         else:
             logger.error("Erreur lors de l'export simple")
-    
-    # Mode export standard (ANCIEN)
     else:
+        # Mode export standard (ANCIEN)
         # ORDRE CORRIGÉ :
-    
-    # 1. D'ABORD exporter les textes de base (SANS transcriptions)
-    text_exporter = TextExporter(config, registry, file_manager)
-    text_exporter.export_all_formats(conversations)
-    
-    # 2. ENSUITE fusionner avec les transcriptions (crée toutes_conversations_avec_transcriptions.txt)
-    merger = TranscriptionMerger(config, registry, file_manager)
-    merger.merge_all_transcriptions()
-    
-    # 3. MAINTENANT exporter les CSV (qui liront le fichier AVEC transcriptions)
-    csv_exporter = CSVExporter(config, registry, file_manager)
-    csv_exporter.export_special_csv(conversations)
-    
-    # 4. Exporter CSV focalisé (1 ligne par contact)
-    focused_csv_exporter = FocusedCSVExporter(config, registry, file_manager)
-    focused_csv_exporter.export_focused_csv(conversations)
+        
+        # 1. D'ABORD exporter les textes de base (SANS transcriptions)
+        text_exporter = TextExporter(config, registry, file_manager)
+        text_exporter.export_all_formats(conversations)
+        
+        # 2. ENSUITE fusionner avec les transcriptions (crée toutes_conversations_avec_transcriptions.txt)
+        merger = TranscriptionMerger(config, registry, file_manager)
+        merger.merge_all_transcriptions()
+        
+        # 3. MAINTENANT exporter les CSV (qui liront le fichier AVEC transcriptions)
+        csv_exporter = CSVExporter(config, registry, file_manager)
+        csv_exporter.export_special_csv(conversations)
+        
+        # 4. Exporter CSV focalisé (1 ligne par contact)
+        focused_csv_exporter = FocusedCSVExporter(config, registry, file_manager)
+        focused_csv_exporter.export_focused_csv(conversations)
     
     # Résumé
     execution_time = time.time() - start_time
@@ -252,6 +251,8 @@ def main():
         os.path.join(output_dir, 'all_transcriptions.txt'),
         os.path.join(output_dir, 'special_export.csv'),
         os.path.join(output_dir, 'messages_recus_par_contact.csv'),
+        os.path.join(output_dir, 'export_simple.csv'),
+        os.path.join(output_dir, 'export_simple.txt'),
     ]:
         if os.path.exists(file):
             size = os.path.getsize(file)
