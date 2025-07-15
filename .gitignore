@@ -54,3 +54,7 @@ duplicates_backup/
 
 # Fichiers de test
 test_*.py
+
+# Dossiers de backup générés par cleanup_script.py
+backup_*/
+

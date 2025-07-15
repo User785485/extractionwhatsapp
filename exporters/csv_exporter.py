@@ -46,12 +46,12 @@ class CSVExporter:
             return
             
         # Verifier aussi la taille du fichier
+        if not os.path.exists(source_file):
+            logger.warning(f"Le fichier {os.path.basename(source_file)} n'existe pas")
+            return
+            
         if os.path.getsize(source_file) < 100:
             logger.error(f"Le fichier {os.path.basename(source_file)} est trop petit ({os.path.getsize(source_file)} octets)")
-            logger.info("Le merger n'a probablement pas fonctionne correctement")
-            return
-            logger.warning(f"Le fichier {os.path.basename(source_file)} n'existe pas encore")
-            logger.info("Attendez que le merger ait fini de le créer")
             return
             
         logger.info(f"Lecture du fichier source: {source_file}")
