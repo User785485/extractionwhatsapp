@@ -68,52 +68,62 @@ class SimpleExporter(BaseExporter):
             return False
     
     def _collect_messages_with_transcriptions(self, conversations: Dict[str, List[Dict]]) -> Dict[str, str]:
-        """Collecte tous les messages reçus avec leurs transcriptions"""
-        logger.info("Collecte des messages et transcriptions...")
+        """Collecte TOUS les contacts, même sans messages reçus"""
+        logger.info("Collecte de TOUS les contacts...")
         output_data = {}
         
         total_contacts = 0
         total_messages = 0
         total_audios = 0
         total_transcribed = 0
+        contacts_without_received = 0
         
+        # Parcourir TOUS les contacts
         for contact, messages in conversations.items():
             contact_content = []
+            has_received = False
             
-            # Filtrer et traiter seulement les messages reçus
+            # Traiter tous les messages
             for msg in messages:
-                if msg.get('direction') != 'received':
-                    continue
-                
-                total_messages += 1
-                
-                if msg.get('type') == 'text':
-                    # Message texte simple
-                    content = msg.get('content', '').strip()
-                    if content:
-                        contact_content.append(content)
-                        
-                elif msg.get('type') == 'audio':
-                    total_audios += 1
-                    # Message audio : chercher la transcription
-                    transcription = self._get_audio_transcription(msg, contact)
+                # On cherche seulement les messages reçus
+                if msg.get('direction') == 'received':
+                    has_received = True
+                    total_messages += 1
                     
-                    if transcription:
-                        contact_content.append(f"[AUDIO] {transcription}")
-                        total_transcribed += 1
-                    else:
-                        # Pas de transcription disponible
-                        contact_content.append("[AUDIO non transcrit]")
+                    if msg.get('type') == 'text':
+                        content = msg.get('content', '').strip()
+                        if content:
+                            contact_content.append(content)
+                            
+                    elif msg.get('type') == 'audio':
+                        total_audios += 1
+                        # Chercher la transcription
+                        transcription = self._get_audio_transcription(msg, contact)
+                        
+                        if transcription:
+                            contact_content.append(f"[AUDIO] {transcription}")
+                            total_transcribed += 1
+                        else:
+                            contact_content.append("[AUDIO non transcrit]")
+        
+            # IMPORTANT : Ajouter TOUS les contacts, même sans messages reçus
+            total_contacts += 1
             
-            # Joindre tous les messages du contact
             if contact_content:
-                total_contacts += 1
-                # Joindre avec un espace
+                # Contact avec des messages reçus
                 output_data[contact] = " ".join(contact_content)
+            else:
+                # Contact SANS messages reçus - l'ajouter quand même !
+                output_data[contact] = "[Aucun message reçu]"
+                contacts_without_received += 1
+                if not has_received:
+                    logger.info(f"Contact sans messages reçus: {contact}")
         
         # Statistiques
         logger.info(f"Collecte terminée:")
-        logger.info(f"  - Contacts avec messages reçus: {total_contacts}")
+        logger.info(f"  - TOTAL contacts traités: {total_contacts}")
+        logger.info(f"  - Contacts avec messages reçus: {total_contacts - contacts_without_received}")
+        logger.info(f"  - Contacts SANS messages reçus: {contacts_without_received}")
         logger.info(f"  - Total messages reçus: {total_messages}")
         logger.info(f"  - Total audios: {total_audios}")
         logger.info(f"  - Audios transcrits: {total_transcribed}")
