@@ -7,6 +7,7 @@ Export simple : Contact | Messages reçus avec transcriptions
 
 import os
 import csv
+import re
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -126,7 +127,7 @@ class SimpleExporter(BaseExporter):
         if not media_path:
             return None
         
-        # Chercher par hash du fichier
+        # Méthode 1: Chercher par hash du fichier directement
         try:
             file_hash = self.registry.get_file_hash(media_path)
             if file_hash:
@@ -145,7 +146,38 @@ class SimpleExporter(BaseExporter):
                         if trans_data and trans_data.get('text'):
                             return trans_data['text'].strip()
         except Exception as e:
-            logger.debug(f"Erreur recherche transcription: {e}")
+            logger.debug(f"Méthode 1 échec: {e}")
+        
+        # Méthode 2: Essayer par le nom du fichier
+        try:
+            filename = os.path.basename(media_path)
+            # Extraire l'UUID du nom
+            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', filename)
+            if uuid_match:
+                uuid = uuid_match.group(1)
+                # Parcourir toutes les transcriptions
+                for hash_id, trans_data in self.registry.data.get('transcriptions', {}).items():
+                    if uuid in hash_id or (trans_data.get('source', '') and uuid in trans_data.get('source', '')):
+                        if trans_data.get('text'):
+                            return trans_data['text'].strip()
+        except Exception as e:
+            logger.debug(f"Méthode 2 échec: {e}")
+        
+        # Méthode 3: Chercher dans tous les fichiers audio du contact
+        try:
+            contact_key = contact.replace(' ', '_').lower()
+            # Parcourir tous les fichiers MP3 dans le répertoire du contact
+            contact_dir = os.path.join(self.output_dir, contact_key)
+            audio_dir = os.path.join(contact_dir, 'audio')
+            
+            if os.path.exists(audio_dir):
+                for trans_hash, trans_data in self.registry.data.get('transcriptions', {}).items():
+                    if trans_data.get('text') and trans_data.get('source'):
+                        source = trans_data['source']
+                        if contact_key in source.lower():
+                            return trans_data['text'].strip()
+        except Exception as e:
+            logger.debug(f"Méthode 3 échec: {e}")
         
         return None
     
