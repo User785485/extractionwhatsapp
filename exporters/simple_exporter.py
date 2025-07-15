@@ -161,12 +161,18 @@ class SimpleExporter(BaseExporter):
                 # En-tête
                 writer.writerow(['Contact/Identifiant', 'Messages reçus et transcriptions'])
                 
-                # Données triées par contact
+                # IMPORTANT : Écrire TOUTES les données sans filtrage
+                contacts_written = 0
                 for contact, content in sorted(output_data.items()):
                     writer.writerow([contact, content])
+                    contacts_written += 1
             
             logger.info(f"✓ CSV créé: {csv_path}")
-            logger.info(f"  - Nombre de contacts: {len(output_data)}")
+            logger.info(f"  - Nombre de contacts ÉCRITS: {contacts_written}")
+            logger.info(f"  - Nombre de contacts ATTENDUS: {len(output_data)}")
+            
+            if contacts_written != len(output_data):
+                logger.error(f"⚠️ PROBLÈME : {len(output_data) - contacts_written} contacts manquants !")
             
             # Créer aussi version Excel si possible
             try:
@@ -183,8 +189,8 @@ class SimpleExporter(BaseExporter):
                     worksheet.column_dimensions['B'].width = 100
                 
                 logger.info(f"✓ Excel créé aussi: {excel_path}")
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Erreur création Excel: {e}")
             
             return True
             
