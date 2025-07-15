@@ -1,244 +1,356 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Script pour consolider correctement tous les fichiers de messages avec les transcriptions
+Diagnostic Complet pour Export WhatsApp
+Analyse en profondeur pourquoi certains contacts ont des données manquantes
 """
 
 import os
-import re
 import json
+import logging
+from pathlib import Path
+from typing import Dict, List, Set
+import csv
 from datetime import datetime
 
-def load_all_transcriptions(output_dir):
-    """Charge toutes les transcriptions depuis les mappings"""
-    transcriptions = {}
-    mapping_dir = os.path.join(output_dir, '.transcription_mappings')
-    
-    if not os.path.exists(mapping_dir):
-        print("X Repertoire de mappings non trouve!")
-        return transcriptions
-    
-    # Charger tous les fichiers de mapping
-    for file in os.listdir(mapping_dir):
-        if file.endswith('_mappings.json'):
-            filepath = os.path.join(mapping_dir, file)
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    mappings = json.load(f)
-                    
-                for mp3_name, data in mappings.items():
-                    if 'transcription' in data:
-                        # Extraire l'UUID du nom MP3
-                        uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', mp3_name)
-                        if uuid_match:
-                            uuid = uuid_match.group(1)
-                            transcriptions[uuid] = data['transcription']
-                            # Convertir le nom MP3 en differents formats audio possibles
-                            base_name = mp3_name.replace('.mp3', '').replace('audio_', '')
-                            # Stocker pour tous les formats possibles
-                            for ext in ['.opus', '.ogg', '.m4a']:
-                                audio_name = base_name + ext
-                                transcriptions[audio_name] = data['transcription']
-            except Exception as e:
-                print(f"! Erreur lecture {file}: {str(e)}")
-    
-    print(f"OK {len(transcriptions)} transcriptions chargees")
-    return transcriptions
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('diagnostic_export_deep.log', encoding='utf-8')
+    ]
+)
+logger = logging.getLogger(__name__)
 
-def process_message_file(content, transcriptions):
-    """Traite un fichier de messages et remplace les [AUDIO] par les transcriptions"""
-    lines = content.split('\n')
-    processed_lines = []
-    replacements = 0
-    
-    for line in lines:
-        # Chercher les references [AUDIO]
-        audio_match = re.search(r'\[AUDIO\]\s+([^\n]+)', line)
-        if audio_match:
-            audio_ref = audio_match.group(1).strip()
+class ExportDiagnostic:
+    def __init__(self, output_dir: str):
+        self.output_dir = Path(output_dir)
+        self.issues = []
+        self.stats = {
+            'total_contacts': 0,
+            'contacts_with_html': 0,
+            'contacts_with_json': 0,
+            'contacts_with_transcriptions': 0,
+            'contacts_with_text_messages': 0,
+            'contacts_with_audio_messages': 0,
+            'contacts_missing_in_export': 0
+        }
+        
+    def run_diagnostic(self):
+        """Lance le diagnostic complet"""
+        logger.info("="*80)
+        logger.info("DIAGNOSTIC COMPLET DE L'EXPORT WHATSAPP")
+        logger.info("="*80)
+        
+        # 1. Analyser tous les contacts
+        all_contacts = self.scan_all_contacts()
+        
+        # 2. Analyser les données de chaque contact
+        contact_analysis = {}
+        for contact in all_contacts:
+            logger.info(f"\nAnalyse de {contact}...")
+            contact_analysis[contact] = self.analyze_contact(contact)
             
-            # Extraire l'UUID
-            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', audio_ref)
-            if uuid_match:
-                uuid = uuid_match.group(1)
-                
-                # Chercher la transcription
-                transcription = None
-                
-                # 1. Essayer avec l'UUID seul
-                if uuid in transcriptions:
-                    transcription = transcriptions[uuid]
-                # 2. Essayer avec le nom complet
-                elif audio_ref in transcriptions:
-                    transcription = transcriptions[audio_ref]
-                
-                if transcription:
-                    # Remplacer [AUDIO] par [AUDIO TRANSCRIT]
-                    new_line = line.replace(f'[AUDIO] {audio_ref}', f'[AUDIO TRANSCRIT] "{transcription}"')
-                    processed_lines.append(new_line)
-                    replacements += 1
-                else:
-                    processed_lines.append(line)
-            else:
-                processed_lines.append(line)
-        else:
-            processed_lines.append(line)
-    
-    return '\n'.join(processed_lines), replacements
-
-def consolidate_all_messages(output_dir, transcriptions):
-    """Consolide tous les messages de tous les contacts"""
-    all_content = []
-    all_content.append("TOUTES LES CONVERSATIONS WHATSAPP")
-    all_content.append(f"Genere le: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    all_content.append("=" * 60 + "\n")
-    
-    received_content = []
-    received_content.append("MESSAGES RECUS UNIQUEMENT")
-    received_content.append(f"Genere le: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    received_content.append("=" * 60 + "\n")
-    
-    total_messages = 0
-    total_received = 0
-    total_replacements = 0
-    
-    # Parcourir tous les contacts
-    contacts = [d for d in os.listdir(output_dir) 
-                if os.path.isdir(os.path.join(output_dir, d)) 
-                and not d.startswith('.')]
-    
-    print(f"\nTraitement de {len(contacts)} contacts...")
-    
-    for i, contact in enumerate(sorted(contacts)):
-        contact_dir = os.path.join(output_dir, contact)
+        # 3. Charger l'export actuel
+        export_data = self.load_current_export()
         
-        # Fichier tous messages
-        all_msg_file = os.path.join(contact_dir, 'tous_messages.txt')
-        if os.path.exists(all_msg_file) and os.path.getsize(all_msg_file) > 0:
-            try:
-                with open(all_msg_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                
-                # Traiter le contenu avec les transcriptions
-                processed_content, replacements = process_message_file(content, transcriptions)
-                total_replacements += replacements
-                
-                # Ajouter au fichier global
-                all_content.append(f"\n{'='*60}")
-                all_content.append(f"CONVERSATION: {contact}")
-                all_content.append(f"{'='*60}\n")
-                all_content.append(processed_content)
-                
-                # Compter les messages
-                messages = re.findall(r'\[\d{2}:\d{2}\]', content)
-                total_messages += len(messages)
-                
-                # Sauvegarder la version avec transcriptions dans le contact
-                target_file = os.path.join(contact_dir, 'tous_messages_avec_transcriptions.txt')
-                with open(target_file, 'w', encoding='utf-8') as f:
-                    f.write(processed_content)
-                
-            except Exception as e:
-                print(f"! Erreur avec {contact}: {str(e)}")
+        # 4. Comparer et identifier les problèmes
+        self.compare_with_export(contact_analysis, export_data)
         
-        # Fichier messages recus
-        received_file = os.path.join(contact_dir, 'messages_recus.txt')
-        if os.path.exists(received_file) and os.path.getsize(received_file) > 0:
+        # 5. Générer le rapport
+        self.generate_report(contact_analysis, export_data)
+        
+    def scan_all_contacts(self) -> Set[str]:
+        """Scanne tous les dossiers de contacts"""
+        contacts = set()
+        
+        for item in self.output_dir.iterdir():
+            if item.is_dir() and not item.name.startswith('.'):
+                contacts.add(item.name)
+                self.stats['total_contacts'] += 1
+                
+        logger.info(f"Contacts trouvés: {len(contacts)}")
+        return contacts
+        
+    def analyze_contact(self, contact: str) -> Dict:
+        """Analyse complète d'un contact"""
+        contact_dir = self.output_dir / contact
+        analysis = {
+            'name': contact,
+            'has_conversation_json': False,
+            'has_transcriptions': False,
+            'text_messages_received': [],
+            'audio_messages_received': [],
+            'all_messages': [],
+            'transcription_files': [],
+            'issues': []
+        }
+        
+        # 1. Vérifier conversation.json
+        json_file = contact_dir / "conversation.json"
+        if json_file.exists():
+            analysis['has_conversation_json'] = True
+            self.stats['contacts_with_json'] += 1
+            
             try:
-                with open(received_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                
-                # Traiter avec transcriptions
-                processed_content, _ = process_message_file(content, transcriptions)
-                
-                # Ajouter au fichier des messages recus
-                received_content.append(f"\n{'='*40}")
-                received_content.append(f"CONTACT: {contact}")
-                received_content.append(f"{'='*40}\n")
-                received_content.append(processed_content)
-                
-                # Compter
-                messages = re.findall(r'\[\d{4}/\d{2}/\d{2} \d{2}:\d{2}\]', content)
-                total_received += len(messages)
-                
-                # Sauvegarder dans le contact
-                target_file = os.path.join(contact_dir, 'messages_recus_avec_transcriptions.txt')
-                with open(target_file, 'w', encoding='utf-8') as f:
-                    f.write(processed_content)
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    messages = json.load(f)
+                    
+                for msg in messages:
+                    if msg.get('direction') == 'received':
+                        if msg.get('type') == 'text':
+                            content = msg.get('content', '').strip()
+                            if content:
+                                analysis['text_messages_received'].append({
+                                    'date': msg.get('date'),
+                                    'time': msg.get('time'),
+                                    'content': content
+                                })
+                        elif msg.get('type') == 'audio':
+                            analysis['audio_messages_received'].append({
+                                'date': msg.get('date'),
+                                'time': msg.get('time'),
+                                'file': msg.get('content', ''),
+                                'media_path': msg.get('media_path', '')
+                            })
+                    
+                    analysis['all_messages'].append(msg)
                     
             except Exception as e:
-                print(f"! Erreur messages recus {contact}: {str(e)}")
+                analysis['issues'].append(f"Erreur lecture JSON: {str(e)}")
+                logger.error(f"Erreur JSON pour {contact}: {e}")
+        else:
+            analysis['issues'].append("Pas de conversation.json")
+            
+        # 2. Vérifier les transcriptions
+        trans_dir = contact_dir / "transcriptions"
+        if trans_dir.exists():
+            txt_files = list(trans_dir.glob("*.txt"))
+            if txt_files:
+                analysis['has_transcriptions'] = True
+                self.stats['contacts_with_transcriptions'] += 1
+                
+                for txt_file in txt_files:
+                    try:
+                        with open(txt_file, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            
+                        # Extraire la transcription
+                        lines = content.split('\n')
+                        if len(lines) > 5:
+                            transcription = '\n'.join(lines[5:]).strip()
+                            if transcription:
+                                analysis['transcription_files'].append({
+                                    'file': txt_file.name,
+                                    'content': transcription[:100] + "..." if len(transcription) > 100 else transcription
+                                })
+                    except Exception as e:
+                        analysis['issues'].append(f"Erreur lecture transcription {txt_file.name}: {str(e)}")
+                        
+        # Statistiques
+        if analysis['text_messages_received']:
+            self.stats['contacts_with_text_messages'] += 1
+        if analysis['audio_messages_received']:
+            self.stats['contacts_with_audio_messages'] += 1
+            
+        return analysis
         
-        # Afficher la progression
-        if (i + 1) % 50 == 0:
-            print(f"  Traite: {i + 1}/{len(contacts)} contacts...")
-    
-    # Ajouter les statistiques
-    all_content.append(f"\n\n{'='*60}")
-    all_content.append(f"STATISTIQUES GLOBALES:")
-    all_content.append(f"  - Contacts: {len(contacts)}")
-    all_content.append(f"  - Total messages: {total_messages}")
-    all_content.append(f"  - Transcriptions ajoutees: {total_replacements}")
-    
-    received_content.append(f"\n\n{'='*60}")
-    received_content.append(f"STATISTIQUES:")
-    received_content.append(f"  - Contacts: {len(contacts)}")
-    received_content.append(f"  - Messages recus: {total_received}")
-    
-    # Sauvegarder les fichiers globaux
-    global_file = os.path.join(output_dir, 'toutes_conversations_avec_transcriptions.txt')
-    with open(global_file, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(all_content))
-    print(f"\nOK Fichier global cree: {global_file}")
-    print(f"  Taille: {os.path.getsize(global_file):,} octets")
-    
-    received_global = os.path.join(output_dir, 'messages_recus_avec_transcriptions.txt')
-    with open(received_global, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(received_content))
-    print(f"\nOK Fichier messages recus cree: {received_global}")
-    print(f"  Taille: {os.path.getsize(received_global):,} octets")
-    
-    print(f"\nRESUME:")
-    print(f"  - Contacts traites: {len(contacts)}")
-    print(f"  - Messages totaux: {total_messages}")
-    print(f"  - Messages recus: {total_received}")
-    print(f"  - Transcriptions ajoutees: {total_replacements}")
+    def load_current_export(self) -> Dict[str, str]:
+        """Charge l'export actuel"""
+        export_data = {}
+        
+        # Essayer CSV
+        csv_path = self.output_dir / "export_simple.csv"
+        if csv_path.exists():
+            try:
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        contact = row.get('Contact/Identifiant', '')
+                        content = row.get('Messages reçus et transcriptions', '')
+                        if contact:
+                            export_data[contact] = content
+                logger.info(f"Export CSV chargé: {len(export_data)} contacts")
+            except Exception as e:
+                logger.error(f"Erreur lecture CSV: {e}")
+                
+        # Sinon essayer TXT
+        if not export_data:
+            txt_path = self.output_dir / "export_simple.txt"
+            if txt_path.exists():
+                try:
+                    with open(txt_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    # Parser le TXT (format simple)
+                    lines = content.split('\n')
+                    current_contact = None
+                    for line in lines:
+                        if line and not line.startswith(' ') and ':' in line:
+                            current_contact = line.rstrip(':')
+                        elif current_contact and line.strip():
+                            export_data[current_contact] = line.strip()
+                except Exception as e:
+                    logger.error(f"Erreur lecture TXT: {e}")
+                    
+        return export_data
+        
+    def compare_with_export(self, contact_analysis: Dict, export_data: Dict):
+        """Compare l'analyse avec l'export actuel"""
+        logger.info("\n" + "="*60)
+        logger.info("COMPARAISON AVEC L'EXPORT")
+        logger.info("="*60)
+        
+        for contact, analysis in contact_analysis.items():
+            export_content = export_data.get(contact, "NON TROUVÉ DANS L'EXPORT")
+            
+            # Vérifier si le contact a des données mais n'est pas dans l'export
+            has_data = (analysis['text_messages_received'] or 
+                       analysis['audio_messages_received'] or 
+                       analysis['has_transcriptions'])
+            
+            if has_data and (contact not in export_data or export_content == "[Aucun message reçu]"):
+                self.stats['contacts_missing_in_export'] += 1
+                
+                logger.warning(f"\n⚠️ PROBLÈME DÉTECTÉ pour {contact}:")
+                logger.warning(f"  - Messages texte reçus: {len(analysis['text_messages_received'])}")
+                logger.warning(f"  - Messages audio reçus: {len(analysis['audio_messages_received'])}")
+                logger.warning(f"  - Transcriptions: {len(analysis['transcription_files'])}")
+                logger.warning(f"  - Dans l'export: {export_content}")
+                
+                # Afficher les messages texte manquants
+                if analysis['text_messages_received']:
+                    logger.warning("  - Textes reçus NON exportés:")
+                    for msg in analysis['text_messages_received']:
+                        logger.warning(f"    * {msg['date']} {msg['time']}: {msg['content'][:50]}...")
+                        
+    def generate_report(self, contact_analysis: Dict, export_data: Dict):
+        """Génère un rapport détaillé"""
+        report_path = self.output_dir / f"diagnostic_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write("RAPPORT DE DIAGNOSTIC EXPORT WHATSAPP\n")
+            f.write(f"Généré le: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("="*80 + "\n\n")
+            
+            # Statistiques globales
+            f.write("STATISTIQUES GLOBALES:\n")
+            f.write(f"- Total contacts scannés: {self.stats['total_contacts']}\n")
+            f.write(f"- Contacts avec conversation.json: {self.stats['contacts_with_json']}\n")
+            f.write(f"- Contacts avec transcriptions: {self.stats['contacts_with_transcriptions']}\n")
+            f.write(f"- Contacts avec messages texte: {self.stats['contacts_with_text_messages']}\n")
+            f.write(f"- Contacts avec messages audio: {self.stats['contacts_with_audio_messages']}\n")
+            f.write(f"- Contacts dans l'export: {len(export_data)}\n")
+            f.write(f"- CONTACTS AVEC DONNÉES MANQUANTES: {self.stats['contacts_missing_in_export']}\n")
+            f.write("\n" + "="*80 + "\n\n")
+            
+            # Détails des problèmes
+            f.write("CONTACTS PROBLÉMATIQUES:\n\n")
+            
+            for contact, analysis in sorted(contact_analysis.items()):
+                export_content = export_data.get(contact, "NON TROUVÉ")
+                has_data = (analysis['text_messages_received'] or 
+                           analysis['audio_messages_received'] or 
+                           analysis['has_transcriptions'])
+                
+                if has_data and (contact not in export_data or export_content == "[Aucun message reçu]"):
+                    f.write(f"{'='*60}\n")
+                    f.write(f"CONTACT: {contact}\n")
+                    f.write(f"{'='*60}\n")
+                    
+                    f.write(f"STATUT EXPORT: {export_content}\n\n")
+                    
+                    f.write("DONNÉES TROUVÉES:\n")
+                    f.write(f"- conversation.json: {'OUI' if analysis['has_conversation_json'] else 'NON'}\n")
+                    f.write(f"- Dossier transcriptions: {'OUI' if analysis['has_transcriptions'] else 'NON'}\n")
+                    f.write(f"- Messages texte reçus: {len(analysis['text_messages_received'])}\n")
+                    f.write(f"- Messages audio reçus: {len(analysis['audio_messages_received'])}\n")
+                    f.write(f"- Fichiers transcription: {len(analysis['transcription_files'])}\n\n")
+                    
+                    if analysis['text_messages_received']:
+                        f.write("MESSAGES TEXTE REÇUS (NON EXPORTÉS):\n")
+                        for msg in analysis['text_messages_received']:
+                            f.write(f"  [{msg['date']} {msg['time']}] {msg['content']}\n")
+                        f.write("\n")
+                    
+                    if analysis['audio_messages_received']:
+                        f.write("MESSAGES AUDIO REÇUS:\n")
+                        for msg in analysis['audio_messages_received']:
+                            f.write(f"  [{msg['date']} {msg['time']}] {msg['file']}\n")
+                        f.write("\n")
+                    
+                    if analysis['transcription_files']:
+                        f.write("TRANSCRIPTIONS TROUVÉES:\n")
+                        for trans in analysis['transcription_files']:
+                            f.write(f"  - {trans['file']}: {trans['content']}\n")
+                        f.write("\n")
+                    
+                    if analysis['issues']:
+                        f.write("PROBLÈMES DÉTECTÉS:\n")
+                        for issue in analysis['issues']:
+                            f.write(f"  ⚠️ {issue}\n")
+                        f.write("\n")
+                    
+                    f.write("\n")
+            
+            # Recommandations
+            f.write("="*80 + "\n")
+            f.write("RECOMMANDATIONS:\n")
+            f.write("="*80 + "\n")
+            
+            if self.stats['contacts_missing_in_export'] > 0:
+                f.write("\n⚠️ Des contacts ont des données qui n'apparaissent pas dans l'export!\n")
+                f.write("\nCauses possibles:\n")
+                f.write("1. Le parser HTML n'a pas extrait ces contacts\n")
+                f.write("2. Le SimpleExporter ne lit pas correctement les conversation.json\n")
+                f.write("3. Problème de correspondance des noms de dossiers\n")
+                f.write("4. Les données sont écrasées lors du traitement\n")
+                
+        logger.info(f"\n✅ Rapport généré: {report_path}")
+        
+        # Afficher un résumé
+        logger.info("\n" + "="*60)
+        logger.info("RÉSUMÉ DU DIAGNOSTIC")
+        logger.info("="*60)
+        logger.info(f"Contacts avec données manquantes dans l'export: {self.stats['contacts_missing_in_export']}")
+        
+        if self.stats['contacts_missing_in_export'] > 0:
+            logger.info("\nExemples de contacts problématiques:")
+            count = 0
+            for contact, analysis in contact_analysis.items():
+                if count >= 5:  # Limiter à 5 exemples
+                    break
+                    
+                export_content = export_data.get(contact, "NON TROUVÉ")
+                has_data = (analysis['text_messages_received'] or 
+                           analysis['audio_messages_received'] or 
+                           analysis['has_transcriptions'])
+                
+                if has_data and (contact not in export_data or export_content == "[Aucun message reçu]"):
+                    logger.info(f"\n- {contact}:")
+                    if analysis['text_messages_received']:
+                        logger.info(f"  Texte reçu: {analysis['text_messages_received'][0]['content'][:50]}...")
+                    logger.info(f"  Export actuel: {export_content}")
+                    count += 1
 
 def main():
-    print("=== CONSOLIDATION DES MESSAGES AVEC TRANSCRIPTIONS ===")
+    """Point d'entrée principal"""
+    import sys
     
-    output_dir = r"C:\Datalead3webidu13juillet"
-    if not os.path.exists(output_dir):
-        print(f"ERREUR: Le dossier de sortie n'existe pas: {output_dir}")
+    if len(sys.argv) < 2:
+        print("Usage: python diagnostic_export_deep.py <output_directory>")
+        print("Exemple: python diagnostic_export_deep.py C:\\Datalead3webidu13juillet")
         sys.exit(1)
         
-    # Vérifier les permissions d'écriture
-    test_file = os.path.join(output_dir, "_test_write_permission.txt")
-    try:
-        with open(test_file, 'w') as f:
-            f.write("Test d'écriture")
-        if os.path.exists(test_file):
-            os.remove(test_file)
-            print("✓ Test d'écriture réussi")
-    except Exception as e:
-        print(f"ERREUR de permission d'écriture: {str(e)}")
+    output_dir = sys.argv[1]
+    
+    if not os.path.exists(output_dir):
+        print(f"Erreur: Le répertoire {output_dir} n'existe pas")
         sys.exit(1)
-    
-    # 1. Charger toutes les transcriptions
-    print("\n1. Chargement des transcriptions...")
-    transcriptions = load_all_transcriptions(output_dir)
-    
-    if not transcriptions:
-        print("X Aucune transcription trouvee! Arret.")
-        return
-    
-    # 2. Consolider tous les messages
-    print("\n2. Consolidation des messages...")
-    consolidate_all_messages(output_dir, transcriptions)
-    
-    print("\nOK Consolidation terminee avec succes!")
-    print("\nVous pouvez maintenant lancer:")
-    print("python main_enhanced.py --skip-extraction --skip-media --skip-audio --skip-transcription")
+        
+    diagnostic = ExportDiagnostic(output_dir)
+    diagnostic.run_diagnostic()
 
 if __name__ == "__main__":
     main()

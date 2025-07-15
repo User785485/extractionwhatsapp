@@ -41,12 +41,6 @@ class CSVExporter:
             logger.info(f"Utilisation du fichier source: {source_file}")
             
         if not os.path.exists(source_file):
-            logger.warning(f"Le fichier {os.path.basename(source_file)} n'existe pas encore")
-            logger.info("Attendez que le merger ait fini de le creer")
-            return
-            
-        # Verifier aussi la taille du fichier
-        if not os.path.exists(source_file):
             logger.warning(f"Le fichier {os.path.basename(source_file)} n'existe pas")
             return
             

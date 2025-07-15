@@ -3,6 +3,7 @@
 """
 WhatsApp Extractor V2 - Version optimisée
 Module principal pour l'extraction et le traitement des conversations WhatsApp
+VERSION CORRIGÉE pour permettre l'export même sans fichiers HTML
 """
 
 import os
@@ -147,26 +148,34 @@ def main():
         
     conversations = html_parser.parse_all_conversations(incremental=incremental)
     
+    # CHANGEMENT CRITIQUE : Ne pas s'arrêter si pas de conversations HTML
     if not conversations:
-        logger.warning("Aucune conversation trouvée ou à traiter.")
-        logger.info(f"Temps total d'exécution: {time.time() - start_time:.2f} secondes")
-        return 0
-    
-    logger.info(f"Conversations extraites: {len(conversations)}")
+        logger.warning("Aucune conversation trouvée dans les fichiers HTML.")
+        if args.simple_export:
+            logger.info("MAIS on continue avec l'export simple qui va scanner tous les dossiers!")
+            conversations = {}  # Dictionnaire vide pour continuer
+        else:
+            logger.info(f"Temps total d'exécution: {time.time() - start_time:.2f} secondes")
+            return 0
+    else:
+        logger.info(f"Conversations extraites depuis HTML: {len(conversations)}")
     
     # Pause pour stabiliser le système
     time.sleep(1)
     
-    # Phase 2: Organisation des médias
-    logger.info("="*60)
-    logger.info("PHASE 2: ORGANISATION DES MÉDIAS")
-    logger.info("="*60)
+    # Phase 2: Organisation des médias - Seulement si on a des conversations
+    if conversations:
+        logger.info("="*60)
+        logger.info("PHASE 2: ORGANISATION DES MÉDIAS")
+        logger.info("="*60)
+        
+        media_organizer = MediaOrganizer(config, registry, file_manager)
+        media_organizer.organize_media(conversations, media_dir)
+    else:
+        logger.info("Phase 2 ignorée (pas de conversations HTML)")
     
-    media_organizer = MediaOrganizer(config, registry, file_manager)
-    media_organizer.organize_media(conversations, media_dir)
-    
-    # Phase 3: Conversion audio
-    if not args.no_audio:
+    # Phase 3: Conversion audio - Seulement si on a des conversations et audio activé
+    if not args.no_audio and conversations:
         logger.info("="*60)
         logger.info("PHASE 3: CONVERSION AUDIO")
         logger.info("="*60)
@@ -177,10 +186,10 @@ def main():
             audio_processor.test_limit = args.limit
         audio_processor.process_all_audio(conversations)
     else:
-        logger.info("Conversion audio désactivée")
+        logger.info("Conversion audio désactivée ou pas de conversations")
     
-    # Phase 4: Transcription
-    if not args.no_transcription and not args.no_audio:
+    # Phase 4: Transcription - Seulement si conditions remplies
+    if not args.no_transcription and not args.no_audio and conversations:
         logger.info("="*60)
         logger.info("PHASE 4: TRANSCRIPTION")
         logger.info("="*60)
@@ -196,9 +205,9 @@ def main():
         else:
             logger.warning("Aucune transcription effectuée")
     else:
-        logger.info("Transcription désactivée")
+        logger.info("Transcription désactivée ou pas de conversations")
     
-    # Phase 5: Export
+    # Phase 5: Export - TOUJOURS exécuté
     logger.info("="*60)
     logger.info("PHASE 5: EXPORT")
     logger.info("="*60)
@@ -206,6 +215,8 @@ def main():
     # Mode export simple (NOUVEAU)
     if args.simple_export:
         logger.info("Mode export SIMPLE activé")
+        logger.info("Le SimpleExporter va scanner TOUS les dossiers, même sans conversations HTML")
+        
         simple_exporter = SimpleExporter(config, registry, file_manager)
         success = simple_exporter.export_simple(conversations)
         
@@ -220,24 +231,27 @@ def main():
         else:
             logger.error("Erreur lors de l'export simple")
     else:
-        # Mode export standard (ANCIEN)
-        # ORDRE CORRIGÉ :
-        
-        # 1. D'ABORD exporter les textes de base (SANS transcriptions)
-        text_exporter = TextExporter(config, registry, file_manager)
-        text_exporter.export_all_formats(conversations)
-        
-        # 2. ENSUITE fusionner avec les transcriptions (crée toutes_conversations_avec_transcriptions.txt)
-        merger = TranscriptionMerger(config, registry, file_manager)
-        merger.merge_all_transcriptions()
-        
-        # 3. MAINTENANT exporter les CSV (qui liront le fichier AVEC transcriptions)
-        csv_exporter = CSVExporter(config, registry, file_manager)
-        csv_exporter.export_special_csv(conversations)
-        
-        # 4. Exporter CSV focalisé (1 ligne par contact)
-        focused_csv_exporter = FocusedCSVExporter(config, registry, file_manager)
-        focused_csv_exporter.export_focused_csv(conversations)
+        # Mode export standard (ANCIEN) - seulement si on a des conversations
+        if conversations:
+            # ORDRE CORRIGÉ :
+            
+            # 1. D'ABORD exporter les textes de base (SANS transcriptions)
+            text_exporter = TextExporter(config, registry, file_manager)
+            text_exporter.export_all_formats(conversations)
+            
+            # 2. ENSUITE fusionner avec les transcriptions (crée toutes_conversations_avec_transcriptions.txt)
+            merger = TranscriptionMerger(config, registry, file_manager)
+            merger.merge_all_transcriptions()
+            
+            # 3. MAINTENANT exporter les CSV (qui liront le fichier AVEC transcriptions)
+            csv_exporter = CSVExporter(config, registry, file_manager)
+            csv_exporter.export_special_csv(conversations)
+            
+            # 4. Exporter CSV focalisé (1 ligne par contact)
+            focused_csv_exporter = FocusedCSVExporter(config, registry, file_manager)
+            focused_csv_exporter.export_focused_csv(conversations)
+        else:
+            logger.warning("Export standard ignoré car pas de conversations HTML")
     
     # Résumé
     execution_time = time.time() - start_time

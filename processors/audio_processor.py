@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Audio Processor OPTIMISÉ - Convertit SEULEMENT ce qui sera transcrit
+VERSION OPTIMISÉE avec vérification rapide du cache
 """
 
 import os
@@ -60,6 +61,44 @@ class AudioProcessor:
         # OPTIMISATION : Créer un cache des fichiers déjà convertis
         self.converted_files_cache = self._build_converted_files_cache()
         logger.info(f"Cache des fichiers convertis créé avec {len(self.converted_files_cache)} entrées")
+    
+    def _build_converted_files_cache(self):
+        """
+        Construit un cache des fichiers déjà convertis pour éviter les reconversions
+        Parcourt le registre et les dossiers audio_mp3 pour identifier les fichiers déjà traités
+        """
+        cache = {}
+        
+        # Méthode 1: Parcourir le registre pour les conversions enregistrées
+        for file_hash, file_info in self.registry.data.get('files', {}).items():
+            if file_info.get('type') == 'audio' and file_info.get('converted_path'):
+                converted_path = file_info.get('converted_path')
+                if converted_path and os.path.exists(converted_path):
+                    # Extraire le nom de fichier sans extension
+                    filename = os.path.basename(converted_path)
+                    name_without_ext = os.path.splitext(filename)[0]
+                    cache[name_without_ext] = True
+                    logger.debug(f"Cache: {name_without_ext} (depuis registre)")
+        
+        # Méthode 2: Scanner les dossiers audio_mp3 existants
+        output_dir = getattr(self.file_manager, 'output_dir', None)
+        if output_dir and os.path.exists(output_dir):
+            for contact_dir in os.listdir(output_dir):
+                contact_path = os.path.join(output_dir, contact_dir)
+                if not os.path.isdir(contact_path):
+                    continue
+                    
+                audio_mp3_dir = os.path.join(contact_path, "audio_mp3")
+                if os.path.exists(audio_mp3_dir):
+                    for mp3_file in os.listdir(audio_mp3_dir):
+                        if mp3_file.endswith('.mp3'):
+                            # Ajouter au cache (sans extension)
+                            name_without_ext = os.path.splitext(mp3_file)[0]
+                            cache[name_without_ext] = True
+                            logger.debug(f"Cache: {name_without_ext} (depuis dossier)")
+        
+        logger.info(f"Cache des fichiers convertis construit: {len(cache)} entrées")
+        return cache
     
     def _get_ffmpeg_path(self):
         """Trouve FFmpeg de manière robuste"""
@@ -194,6 +233,9 @@ class AudioProcessor:
                         if file_hash:
                             self.registry.register_conversion(file_hash, final_output)
                         
+                        # Ajouter au cache
+                        self.converted_files_cache[safe_name] = True
+                        
                         return final_output
                 
                 # Si échec, nettoyer
@@ -219,6 +261,7 @@ class AudioProcessor:
     def process_all_audio(self, conversations: Dict[str, List[Dict]]) -> Dict[str, Dict]:
         """
         OPTIMISÉ : Traite SEULEMENT les audios selon la configuration
+        AVEC vérification rapide du cache pour éviter les ralentissements
         """
         
         logger.info("=== TRAITEMENT AUDIO OPTIMISÉ ===")
@@ -266,24 +309,44 @@ class AudioProcessor:
                     logger.info(f"Aucun fichier audio {direction}")
                     continue
                 
-                logger.info(f"Conversion des {len(audio_files)} fichiers {direction}")
+                # OPTIMISATION : Vérifier rapidement le cache d'abord
+                files_to_convert = []
+                files_already_converted = 0
                 
-                # Convertir chaque fichier
-                for i, audio_file in enumerate(audio_files):
-                    logger.info(f"[{i+1}/{len(audio_files)}] {direction.upper()}: {os.path.basename(audio_file)}")
+                for audio_file in audio_files:
+                    safe_name = self._create_safe_filename(audio_file)
+                    safe_name = f"{direction}_{safe_name}"
                     
-                    result = self._convert_single_file(audio_file, contact, direction)
-                    if result:
+                    if safe_name in self.converted_files_cache:
+                        files_already_converted += 1
                         contact_results[direction] += 1
                     else:
-                        contact_results['errors'] += 1
+                        files_to_convert.append(audio_file)
+                
+                if files_already_converted > 0:
+                    logger.info(f"Déjà convertis (cache rapide): {files_already_converted} fichiers {direction}")
+                    self.stats['skipped'][direction] += files_already_converted
+                
+                if files_to_convert:
+                    logger.info(f"Conversion de {len(files_to_convert)} fichiers {direction} nécessaires")
                     
-                    time.sleep(0.5)  # Stabilité
+                    # Convertir seulement ceux qui en ont besoin
+                    for i, audio_file in enumerate(files_to_convert):
+                        logger.info(f"[{i+1}/{len(files_to_convert)}] {direction.upper()}: {os.path.basename(audio_file)}")
+                        
+                        result = self._convert_single_file(audio_file, contact, direction)
+                        if result:
+                            contact_results[direction] += 1
+                        else:
+                            contact_results['errors'] += 1
+                        
+                        # Pause seulement pour les conversions réelles
+                        time.sleep(0.5)
             
             results[contact] = contact_results
             
             # Log uniquement si quelque chose a été fait
-            if contact_results['sent'] > 0 or contact_results['received'] > 0:
+            if contact_results['sent'] > 0 or contact_results['received'] > 0 or contact_results['errors'] > 0:
                 logger.info(f"Contact {contact} terminé:")
                 logger.info(f"  - Envoyés convertis: {contact_results['sent']}")
                 logger.info(f"  - Reçus convertis: {contact_results['received']}")
@@ -309,6 +372,7 @@ class AudioProcessor:
         total_converted = self.stats['converted']['sent'] + self.stats['converted']['received']
         total_errors = self.stats['errors']['sent'] + self.stats['errors']['received']
         total_filtered = self.stats['skipped']['filtered']
+        total_skipped = self.stats['skipped']['sent'] + self.stats['skipped']['received']
         
         # Calculer le taux de succès sur les fichiers TENTÉS seulement
         total_attempted = total_converted + total_errors
@@ -324,6 +388,7 @@ class AudioProcessor:
         
         logger.info(f"\nFILTRAGE PAR CONFIG:")
         logger.info(f"  - Ignorés (config): {total_filtered}")
+        logger.info(f"  - Déjà convertis (cache): {total_skipped}")
         logger.info(f"  - À convertir: {total_attempted}")
         
         logger.info(f"\nFICHIERS CONVERTIS: {total_converted}")
@@ -337,11 +402,11 @@ class AudioProcessor:
         logger.info(f"\nTAUX DE SUCCÈS: {success_rate:.1f}%")
         
         # Économies réalisées
-        if total_filtered > 0:
-            time_saved = total_filtered * 2  # ~2 secondes par fichier
+        time_saved = (total_filtered + total_skipped) * 2  # ~2 secondes par fichier économisées
+        if time_saved > 0:
             logger.info(f"\n💡 OPTIMISATION:")
-            logger.info(f"  - Fichiers non convertis: {total_filtered}")
-            logger.info(f"  - Temps économisé: ~{time_saved} secondes")
+            logger.info(f"  - Fichiers non traités: {total_filtered + total_skipped}")
+            logger.info(f"  - Temps économisé: ~{time_saved} secondes ({time_saved/60:.1f} minutes)")
         
         if success_rate < 95 and total_attempted > 0:
             logger.warning(f"⚠ Taux < 95% - Vérifier les erreurs")
