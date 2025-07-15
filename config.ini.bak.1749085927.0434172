@@ -1,0 +1,36 @@
+[PATHS] 
+html_dir = C:\Users\Moham\Downloads\iPhone_20250604173341\WhatsApp 
+media_dir = C:\ProgramData\Wondershare\MobileTrans\ExportMedia\20250605021808 
+output_dir = C:\Users\Moham\Desktop\DataLeads 
+logs_dir = logs 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+openai_key = 
+max_retries = 3
+retry_delay = 5
+file_size_limit = 25000000
+
+[Conversion]
+mp3_quality = 2
+chunk_size = 25000000
+parallel_conversions = 4
+skip_ffmpeg_check = False
+
+parallel_transcriptions = 2
+chunk_duration = 600
+
+mode = received_only
+transcribe_sent = False
+max_transcriptions = 100
+date_format = %Y/%m/%d
+
+[User]
+name = 
+

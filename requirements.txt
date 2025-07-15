@@ -1,0 +1,44 @@
+# Parser HTML
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# API OpenAI pour transcriptions
+openai==1.12.0
+
+# Client HTTP amélioré pour OpenAI
+httpx==0.26.0
+httpcore==1.0.2
+
+# Traitement des données et export Excel
+pandas==2.1.4
+openpyxl==3.1.2
+numpy==1.26.3
+
+# Gestion des fichiers audio (optionnel mais recommandé)
+pydub==0.25.1
+
+# Barre de progression pour l'interface
+tqdm==4.66.1
+
+# Gestion des dates et heures
+python-dateutil==2.8.2
+
+# Configuration avancée
+python-dotenv==1.0.0
+
+# Logs colorés (optionnel mais utile)
+colorlog==6.8.0
+
+# Validation des données
+jsonschema==4.21.1
+
+# Utilitaires système
+psutil==5.9.7
+
+# Tests (optionnel pour développement)
+pytest==7.4.4
+pytest-cov==4.1.0
+
+# Type hints (optionnel pour développement)
+mypy==1.8.0
+types-requests==2.31.0.20240106

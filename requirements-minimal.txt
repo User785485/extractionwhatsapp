@@ -1,0 +1,21 @@
+# Dépendances minimales pour démarrage rapide
+# Version allégée de requirements.txt
+
+# Parser HTML - essentiel pour extraction
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Client HTTP amélioré
+httpx==0.26.0
+
+# Traitement des données - essentiel pour export
+pandas==2.1.4
+
+# Configuration - requis pour .env
+python-dotenv==1.0.0
+
+# Barre de progression pour feedback utilisateur
+tqdm==4.66.1
+
+# Gestion des dates
+python-dateutil==2.8.2

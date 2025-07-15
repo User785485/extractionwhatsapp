@@ -1,0 +1,29 @@
+================================================================ 
+ STRUCTURE DU PROJET - WHATSAPP EXTRACTOR V2 
+ Généré le 05/06/2025 à 15:27:46,88 
+================================================================ 
+ 
+Dossiers principaux: 
+------------------ 
+ * core 
+ * duplicates_backup 
+ * exporters 
+ * ffmpeg 
+ * logs 
+ * processors 
+ * test_data 
+ * utils 
+ * __pycache__ 
+ 
+Statistiques du projet: 
+--------------------- 
+ * Fichiers Python (.py): 33 
+ * Scripts Batch (.bat): 21 
+ * Fichiers config (.ini): 1 
+ * Autres fichiers: 7917 
+ 
+Résumé: 
+------- 
+ * Total des fichiers: 33 Python + 21 Batch + 1 INI + 7917 autres = 0 fichiers 
+ * Fichiers avec parenthèses: 0 
+ 

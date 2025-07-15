@@ -1,0 +1,8 @@
+================================================================ 
+ FICHIERS AVEC PARENTHESES - WHATSAPP EXTRACTOR V2 
+ Généré le 05/06/2025 à 15:27:46,91 
+================================================================ 
+ 
+ Ces fichiers peuvent causer des problèmes avec FFmpeg: 
+ 
+ Total de fichiers avec parenthèses: 0 

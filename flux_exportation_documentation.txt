@@ -1,0 +1,2137 @@
+WHATSAPP EXTRACTOR V2 - DOCUMENTATION DU FLUX D'EXPORTATION 
+Genere le 15/07/2025 a  1:18:05,20 
+========================================= 
+ 
+INTRODUCTION ET VUE D'ENSEMBLE 
+========================================= 
+ 
+Le flux d'exportation CSV fonctionne selon la sequence suivante: 
+ 
+1. main_enhanced.py - Point d'entree principal 
+2. exporters/merger.py - Fusion des transcriptions 
+3. exporters/csv_exporter.py - Exportateur CSV classique 
+4. exporters/robust_exporter.py - Exportateur robuste ameliore 
+5. fix_export.py - Script correctif (maintenant integre) 
+ 
+========================================= 
+ 
+FICHIERS PRINCIPAUX 
+========================================= 
+Ajout de main_enhanced.py 
+========================================= 
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+WhatsApp Extractor V2 - Version améliorée avec options pour sauter des étapes
+Ce script permet de commencer le traitement à différentes étapes du pipeline
+"""
+
+import os
+import sys
+import argparse
+import logging
+import time
+import shutil
+from datetime import datetime
+
+# Imports des modules
+from config import Config
+from utils import setup_logging, check_disk_space, format_size
+from core import UnifiedRegistry, FileManager
+from processors import HTMLParser, MediaOrganizer, AudioProcessor, Transcriber
+from exporters.merger import TranscriptionMerger
+from exporters.text_exporter import TextExporter
+from exporters.csv_exporter import CSVExporter
+from exporters.focused_csv_exporter import FocusedCSVExporter
+from exporters.robust_exporter import RobustPhoneNameCSVExporter
+
+def main():
+    """Point d'entrée principal avec options pour sauter des étapes"""
+    start_time = time.time()
+    
+    # Arguments
+    parser = argparse.ArgumentParser(description='WhatsApp Extractor v2 - Version améliorée')
+    parser.add_argument('--config', default='config.ini', help='Fichier de configuration')
+    parser.add_argument('--mode', choices=['received_only', 'sent_only', 'both'], 
+                       help='Mode de traitement')
+    parser.add_argument('--no-audio', action='store_true', help='Désactiver la conversion audio')
+    parser.add_argument('--no-transcription', action='store_true', help='Désactiver la transcription')
+    parser.add_argument('--incremental', action='store_true', help='Mode incrémental')
+    parser.add_argument('--full', action='store_true', help='Mode complet (retraiter tout)')
+    parser.add_argument('--limit', type=int, help='Limiter le nombre de fichiers/messages (pour tests)')
+    
+    # NOUVELLES OPTIONS
+    parser.add_argument('--skip-extraction', action='store_true', help='Sauter l\'extraction HTML')
+    parser.add_argument('--skip-media', action='store_true', help='Sauter l\'organisation des médias')
+    parser.add_argument('--skip-audio', action='store_true', help='Sauter la conversion audio')
+    parser.add_argument('--skip-transcription', action='store_true', help='Sauter la transcription')
+    parser.add_argument('--force-merger', action='store_true', help='Forcer la régénération des fichiers fusionnés avec transcriptions')
+    parser.add_argument('--minimal-export', action='store_true', help='Mode export minimal : uniquement TXT et CSV des messages reçus avec transcriptions')
+    
+    args = parser.parse_args()
+    
+    # Configuration
+    config = Config(args.config)
+    
+    if args.mode:
+        config.set('Processing', 'mode', args.mode)
+    
+    incremental = True
+    if args.full:
+        incremental = False
+    elif args.incremental:
+        incremental = True
+    
+    # Setup logging
+    logger = setup_logging(config)
+    
+    # Si limite spécifiée, l'afficher clairement
+    if args.limit:
+        logger.info(f"*** MODE TEST ACTIVÉ: Limite fixée à {args.limit} éléments ***")
+    
+    # Déterminer les chemins
+    output_dir = None
+    
+    if hasattr(config, 'get_paths'):
+        try:
+            paths = config.get_paths()
+            output_dir = paths.get('output_dir')
+        except Exception as e:
+            logger.error(f"Erreur lors de l'utilisation de get_paths(): {str(e)}")
+    
+    if not output_dir:
+        for section in ['PATHS', 'Paths', 'paths']:
+            try:
+                temp_dir = config.get(section, 'output_dir')
+                if temp_dir:
+                    output_dir = temp_dir
+                    break
+            except Exception:
+                continue
+    
+    if not output_dir:
+        output_dir = os.path.join(os.path.expanduser('~'), 'Desktop', 'DataLeads')
+        logger.warning(f"Aucun chemin de sortie valide trouvé! Utilisation de secours: {output_dir}")
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    has_space, free_gb = check_disk_space(output_dir, 5.0)
+    if not has_space:
+        logger.warning(f"Espace disque faible: {free_gb:.2f} GB disponibles")
+    
+    logger.info("="*60)
+    logger.info("WHATSAPP EXTRACTOR V2 - DÉMARRAGE")
+    logger.info("="*60)
+    
+    html_dir = None
+    media_dir = None
+    
+    if hasattr(config, 'get_paths'):
+        try:
+            paths = config.get_paths()
+            html_dir = paths.get('html_dir')
+            media_dir = paths.get('media_dir')
+        except Exception as e:
+            logger.error(f"Erreur lors de l'utilisation de get_paths(): {str(e)}")
+    
+    for path_name, path_var in [('html_dir', html_dir), ('media_dir', media_dir)]:
+        if not path_var:
+            for section in ['PATHS', 'Paths', 'paths']:
+                try:
+                    temp_path = config.get(section, path_name)
+                    if temp_path and path_name == 'html_dir':
+                        html_dir = temp_path
+                        break
+                    elif temp_path and path_name == 'media_dir':
+                        media_dir = temp_path
+                        break
+                except Exception:
+                    continue
+    
+    if not html_dir:
+        html_dir = r'C:\Users\Moham\Downloads\iPhone_20250604173341\WhatsApp'
+        logger.warning(f"Aucun chemin HTML valide trouvé! Utilisation de secours: {html_dir}")
+    
+    if not media_dir:
+        media_dir = r'C:\ProgramData\Wondershare\MobileTrans\ExportMedia\20250605021808'
+        logger.warning(f"Aucun chemin Media valide trouvé! Utilisation de secours: {media_dir}")
+    
+    # Afficher les étapes qui vont être exécutées
+    logger.info(f"Début de l'extraction - Mode: {'complet' if not incremental else 'incrémental'}")
+    logger.info("Étapes qui seront exécutées:")
+    logger.info(f"  - Extraction HTML: {'NON' if args.skip_extraction else 'OUI'}")
+    logger.info(f"  - Organisation médias: {'NON' if args.skip_media else 'OUI'}")
+    logger.info(f"  - Conversion audio: {'NON' if args.skip_audio or args.no_audio else 'OUI'}")
+    logger.info(f"  - Transcription: {'NON' if args.skip_transcription or args.no_transcription else 'OUI'}")
+    logger.info(f"  - Export: OUI (toujours exécuté)")
+    
+    logger.info(f"Dossier HTML final: {html_dir}")
+    logger.info(f"Dossier Média final: {media_dir}")
+    
+    # Préparation des composants
+    registry = UnifiedRegistry(output_dir)
+    file_manager = FileManager(output_dir)
+    
+    # Stocker le dernier mode utilisé
+    config.set('User', 'last_mode', 'full' if not incremental else 'incremental')
+    config.save()
+    
+    # Variable pour stocker les conversations
+    conversations = {}
+    
+    # Phase 1: Extraction HTML (à moins qu'on la saute)
+    if not args.skip_extraction:
+        logger.info("="*60)
+        logger.info("PHASE 1: EXTRACTION HTML")
+        logger.info("="*60)
+        
+        html_parser = HTMLParser(config, registry, file_manager)
+        if args.limit:
+            html_parser.test_limit = args.limit
+            
+        conversations = html_parser.parse_all_conversations(incremental=incremental)
+        
+        if not conversations:
+            logger.warning("Aucune conversation trouvée ou à traiter.")
+            logger.info(f"Temps total d'exécution: {time.time() - start_time:.2f} secondes")
+            return 0
+        
+        logger.info(f"Conversations extraites: {len(conversations)}")
+        
+        # Pause pour stabiliser le système
+        time.sleep(1)
+    else:
+        logger.info("="*60)
+        logger.info("PHASE 1: EXTRACTION HTML [SAUTÉE]")
+        logger.info("="*60)
+        # Charger les conversations depuis le registre si elles existent
+        if 'conversations' in registry.data:
+            conversations = registry.data['conversations']
+            logger.info(f"Conversations chargées depuis le registre: {len(conversations)}")
+        else:
+            logger.warning("Aucune conversation trouvée dans le registre. Certaines fonctionnalités peuvent être limitées.")
+    
+    # Phase 2: Organisation des médias (à moins qu'on la saute)
+    if not args.skip_media and not args.skip_extraction:
+        logger.info("="*60)
+        logger.info("PHASE 2: ORGANISATION DES MÉDIAS")
+        logger.info("="*60)
+        
+        media_organizer = MediaOrganizer(config, registry, file_manager)
+        media_organizer.organize_media(conversations, media_dir)
+    else:
+        logger.info("="*60)
+        logger.info("PHASE 2: ORGANISATION DES MÉDIAS [SAUTÉE]")
+        logger.info("="*60)
+    
+    # Phase 3: Conversion audio (à moins qu'on la saute)
+    if not args.skip_audio and not args.no_audio:
+        logger.info("="*60)
+        logger.info("PHASE 3: CONVERSION AUDIO")
+        logger.info("="*60)
+        
+        audio_processor = AudioProcessor(config, registry, file_manager)
+        # Propagation de la limite si spécifiée
+        if args.limit:
+            audio_processor.test_limit = args.limit
+        audio_processor.process_all_audio(conversations)
+    else:
+        logger.info("="*60)
+        logger.info("PHASE 3: CONVERSION AUDIO [SAUTÉE]")
+        logger.info("="*60)
+    
+    # Phase 4: Transcription (à moins qu'on la saute)
+    if not args.skip_transcription and not args.no_transcription:
+        logger.info("="*60)
+        logger.info("PHASE 4: TRANSCRIPTION")
+        logger.info("="*60)
+        
+        transcriber = Transcriber(config, registry, file_manager)
+
+        stats = transcriber.transcribe_all_super_files()
+
+        if stats:
+            logger.info(f"Transcriptions terminées: {sum(stats.values())} super fichiers transcrits")
+        else:
+            logger.warning("Aucune transcription effectuée")
+    else:
+        logger.info("="*60)
+        logger.info("PHASE 4: TRANSCRIPTION [SAUTÉE]")
+        logger.info("="*60)
+    
+    # Phase 5: Export (toujours exécutée)
+    logger.info("="*60)
+    logger.info("PHASE 5: EXPORT")
+    logger.info("="*60)
+    
+    # Vérifier si on est en mode export minimal
+    if args.minimal_export:
+        logger.info("MODE EXPORT MINIMAL ACTIVÉ")
+        logger.info("Génération uniquement des exports essentiels (messages reçus avec transcriptions)")
+        
+        # 1. D'ABORD exporter uniquement les textes des messages reçus
+        text_exporter = TextExporter(config, registry, file_manager)
+        text_exporter.export_received_only(conversations)  # Cette méthode existe déjà
+        
+        # 2. ENSUITE fusionner avec les transcriptions (uniquement les messages reçus)
+        logger.info(f"  - Force-merger: {'OUI' if args.force_merger else 'NON'}")
+        merger = TranscriptionMerger(config, registry, file_manager)
+        # Si --force-merger est activé, forcer la régénération en supprimant les fichiers principaux
+        if args.force_merger:
+            for target_name in ['toutes_conversations_avec_transcriptions.txt', 'messages_recus_avec_transcriptions.txt']:
+                target_file = os.path.join(output_dir, target_name)
+                if os.path.exists(target_file):
+                    try:
+                        os.remove(target_file)
+                        logger.info(f"Fichier supprimé pour forcer la régénération: {target_file}")
+                    except Exception as e:
+                        logger.error(f"Impossible de supprimer {target_file}: {str(e)}")
+        # Appeler merge_all_transcriptions avec le paramètre minimal_export
+        merger.merge_all_transcriptions(minimal_export=True)
+        
+        # 3. Exporter uniquement le CSV des messages reçus
+        csv_exporter = CSVExporter(config, registry, file_manager)
+        # Cette méthode lit déjà les fichiers avec transcriptions
+        csv_exporter.export_special_csv(conversations, received_only=True)  # On va ajouter ce paramètre
+        
+        # 4. Exporter CSV simplifié ROBUSTE (indépendant des fichiers fusionnés)
+        logger.info("Génération de l'export CSV simplifié robuste avec TOUS les contacts...")
+        robust_exporter = RobustPhoneNameCSVExporter(config, registry, file_manager)
+        robust_exporter.export_all_contacts_csv(conversations)
+    else:
+        # COMPORTEMENT PAR DÉFAUT - ORDRE CORRIGÉ
+        
+        # 1. D'ABORD exporter les textes de base (SANS transcriptions)
+        text_exporter = TextExporter(config, registry, file_manager)
+        text_exporter.export_all_formats(conversations)
+        
+        # 2. ENSUITE fusionner avec les transcriptions (crée toutes_conversations_avec_transcriptions.txt)
+        logger.info(f"  - Force-merger: {'OUI' if args.force_merger else 'NON'}")
+        merger = TranscriptionMerger(config, registry, file_manager)
+        # Si --force-merger est activé, forcer la régénération en supprimant le fichier principal
+        if args.force_merger:
+            target_file = os.path.join(output_dir, 'toutes_conversations_avec_transcriptions.txt')
+            if os.path.exists(target_file):
+                try:
+                    os.remove(target_file)
+                    logger.info(f"Fichier supprimé pour forcer la régénération: {target_file}")
+                except Exception as e:
+                    logger.error(f"Impossible de supprimer {target_file}: {str(e)}")
+        merger.merge_all_transcriptions()
+        
+        # 3. MAINTENANT exporter les CSV (qui liront le fichier AVEC transcriptions)
+        csv_exporter = CSVExporter(config, registry, file_manager)
+        csv_exporter.export_special_csv(conversations)
+        
+        # 4. Exporter CSV focalisé (1 ligne par contact)
+        focused_csv_exporter = FocusedCSVExporter(config, registry, file_manager)
+        focused_csv_exporter.export_focused_csv(conversations)
+        
+        # 5. Exporter CSV simplifié ROBUSTE (indépendant des fichiers fusionnés)
+        logger.info("Génération de l'export CSV simplifié robuste avec TOUS les contacts...")
+        robust_exporter = RobustPhoneNameCSVExporter(config, registry, file_manager)
+        robust_exporter.export_all_contacts_csv(conversations)
+    
+    # Résumé
+    execution_time = time.time() - start_time
+    logger.info("="*60)
+    logger.info(f"EXTRACTION TERMINÉE - Temps total: {execution_time:.2f} secondes")
+    logger.info("="*60)
+    
+    logger.info("Fichiers importants générés:")
+    # Liste des fichiers à vérifier en fonction du mode d'export
+    if args.minimal_export:
+        important_files = [
+            os.path.join(output_dir, 'messages_recus.txt'),
+            os.path.join(output_dir, 'messages_recus_avec_transcriptions.txt'),
+            os.path.join(output_dir, 'messages_recus_only.csv'),
+            os.path.join(output_dir, 'contacts_messages_simplifies.csv')
+        ]
+    else:
+        important_files = [
+            os.path.join(output_dir, 'all_conversations.txt'),
+            os.path.join(output_dir, 'toutes_conversations_avec_transcriptions.txt'),
+            os.path.join(output_dir, 'messages_recus_only.csv'),
+            os.path.join(output_dir, 'messages_all.csv'),
+            os.path.join(output_dir, 'messages_recus_par_contact.csv'),
+            os.path.join(output_dir, 'contacts_messages_simplifies.csv'),
+        ]
+    
+    for file in important_files:
+        if os.path.exists(file):
+            size = os.path.getsize(file)
+            logger.info(f"  - {os.path.basename(file)}: {format_size(size)}")
+    
+    # Récupérer les statistiques de transcription
+    total_audios = sum(1 for f in registry.data.get('files', {}).values() if f.get('type') == 'audio')
+    total_transcribed = len(registry.data.get('transcriptions', {}))
+    
+    if total_audios > 0:
+        transcription_rate = (total_transcribed / total_audios) * 100
+        logger.info(f"Taux de transcription: {transcription_rate:.1f}% ({total_transcribed}/{total_audios})")
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+ 
+Ajout de exporters\robust_exporter.py 
+========================================= 
+"""
+Module d'export CSV simplifié et robuste qui fonctionne indépendamment des fichiers fusionnés.
+Il collecte directement les messages depuis les dossiers de contacts.
+"""
+
+import os
+import csv
+import re
+import logging
+import json
+from typing import Dict, List, Any, Tuple, Optional
+
+logger = logging.getLogger(__name__)
+
+class RobustPhoneNameCSVExporter:
+    """
+    Exportateur robuste qui génère un fichier CSV avec:
+    - Numéro de téléphone
+    - Prénom
+    - Messages reçus (incluant les transcriptions)
+    
+    Ne dépend pas des fichiers fusionnés et prend en compte TOUS les contacts.
+    """
+    
+    def __init__(self, config, registry, file_manager):
+        self.config = config
+        self.registry = registry
+        self.file_manager = file_manager
+        
+        # Gérer le cas où output_directory n'est pas défini dans la config
+        self.output_dir = config.get('output_directory', '') if config else ''
+        
+        # Si toujours pas de répertoire, utiliser le répertoire par défaut
+        if not self.output_dir:
+            self.output_dir = "C:\\Datalead3webidu13juillet"
+            logger.info(f"Répertoire de sortie non défini, utilisation du répertoire par défaut: {self.output_dir}")
+        
+    def export_all_contacts_csv(self, conversations=None):
+        """Génère le CSV simplifié avec TOUS les contacts"""
+        logger.info("=== GÉNÉRATION DE L'EXPORT CSV SIMPLIFIÉ ROBUSTE ===")
+        
+        # Collecter les messages par contact
+        contact_messages = self._collect_all_contact_messages()
+        total_contacts = len(contact_messages)
+        logger.info(f"Nombre total de contacts trouvés: {total_contacts}")
+        
+        # Collecter les transcriptions disponibles
+        transcriptions = self._collect_all_transcriptions()
+        
+        # Générer le CSV
+        self._generate_simplified_csv(contact_messages, transcriptions)
+        
+        # Optionnellement générer version Excel
+        self._generate_excel_version()
+        
+        return True
+    
+    def _collect_all_contact_messages(self) -> Dict[str, List[Dict]]:
+        """Collecte tous les messages reçus pour chaque contact"""
+        contacts_dir = self.output_dir
+        contact_messages = {}
+        
+        # Lister tous les sous-dossiers (contacts)
+        try:
+            all_items = os.listdir(contacts_dir)
+            contacts = [item for item in all_items if os.path.isdir(os.path.join(contacts_dir, item)) 
+                        and not item.startswith('.')]
+            
+            logger.info(f"Nombre de contacts trouvés: {len(contacts)}")
+            
+            for contact in contacts:
+                contact_dir = os.path.join(contacts_dir, contact)
+                messages = []
+                
+                # Chercher les fichiers de messages par ordre de priorité
+                message_files = [
+                    os.path.join(contact_dir, 'messages_recus_avec_transcriptions.txt'),
+                    os.path.join(contact_dir, 'messages_recus.txt'),
+                    os.path.join(contact_dir, 'all_messages.txt')
+                ]
+                
+                for message_file in message_files:
+                    if os.path.exists(message_file) and os.path.getsize(message_file) > 100:
+                        messages = self._parse_messages_file(message_file)
+                        if messages:
+                            num_messages = len([m for m in messages if m.get('direction') == 'received'])
+                            if num_messages > 0:
+                                logger.info(f"  - {contact}: {num_messages} messages trouvés")
+                            break
+                
+                # Ajouter ce contact même s'il n'a pas de messages
+                contact_messages[contact] = messages
+        
+        except Exception as e:
+            logger.error(f"Erreur lors de la collecte des messages: {str(e)}")
+            
+        return contact_messages
+    
+    def _parse_messages_file(self, file_path) -> List[Dict]:
+        """Parse un fichier de messages pour extraire les messages reçus avec leurs métadonnées"""
+        messages = []
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+                # Expressions régulières pour détecter les messages
+                message_pattern = r'\[(\d{4}/\d{2}/\d{2}) (\d{2}:\d{2})\] (.+?): (.+?)(?=\[\d{4}/\d{2}/\d{2} \d{2}:\d{2}\]|$)'
+                
+                # Trouver tous les messages
+                matches = re.findall(message_pattern, content, re.DOTALL)
+                
+                for match in matches:
+                    date, time, sender, content = match
+                    
+                    # Déterminer si c'est un message reçu ou envoyé
+                    direction = 'received' if sender != "Vous" else 'sent'
+                    
+                    # Détecter s'il s'agit d'un audio
+                    is_audio = False
+                    transcription = None
+                    media_path = None
+                    
+                    if '[AUDIO]' in content:
+                        is_audio = True
+                        content_parts = content.split('[AUDIO]')
+                        content = content_parts[0].strip()
+                        
+                        # Vérifier si une transcription est déjà présente
+                        if len(content_parts) > 1 and content_parts[1]:
+                            transcription_match = re.search(r'\[(.*?)\]', content_parts[1])
+                            if transcription_match:
+                                transcription = transcription_match.group(1)
+                    
+                    message = {
+                        'date': date,
+                        'time': time,
+                        'sender': sender,
+                        'content': content,
+                        'direction': direction,
+                        'type': 'audio' if is_audio else 'text',
+                        'transcription': transcription,
+                        'media_path': media_path
+                    }
+                    
+                    messages.append(message)
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du parsing du fichier {file_path}: {str(e)}")
+            
+        return messages
+    
+    def _collect_all_transcriptions(self) -> Dict[str, str]:
+        """Collecte toutes les transcriptions disponibles"""
+        transcriptions = {}
+        
+        # 1. Traiter les fichiers de mapping JSON (source principale)
+        try:
+            mappings_dir = os.path.join(self.output_dir, '.transcription_mappings')
+            if os.path.exists(mappings_dir) and os.path.isdir(mappings_dir):
+                json_files = [f for f in os.listdir(mappings_dir) if f.endswith('_mappings.json')]
+                for json_file in json_files:
+                    file_path = os.path.join(mappings_dir, json_file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            mapping_data = json.load(f)
+                            # Structure: {"audio_file.mp3": {"hash": "...", "transcription": "..."}}
+                            for audio_file, data in mapping_data.items():
+                                if isinstance(data, dict) and 'transcription' in data:
+                                    # Stocker avec plusieurs clés pour faciliter la recherche
+                                    transcriptions[audio_file] = data['transcription']
+                                    if 'hash' in data:
+                                        transcriptions[data['hash']] = data['transcription']
+                    except Exception as e:
+                        logger.debug(f"Erreur lors du traitement de {json_file}: {str(e)}")
+                
+                logger.info(f"  - {len(transcriptions)} transcriptions trouvées dans les fichiers de mapping")
+        except Exception as e:
+            logger.error(f"Erreur lors de la lecture des mappings de transcription: {str(e)}")
+        
+        # 2. Tenter de lire le registre unifié comme objet (version actuelle)
+        if hasattr(self.registry, 'get_all_entries'):
+            try:
+                registry_data = self.registry.get_all_entries()
+                if isinstance(registry_data, list):
+                    for entry in registry_data:
+                        if isinstance(entry, dict) and 'transcription' in entry:
+                            # Ajouter avec plusieurs clés
+                            file_path = entry.get('file_path', '')
+                            if file_path:
+                                audio_name = os.path.basename(file_path)
+                                transcriptions[audio_name] = entry['transcription']
+                            if entry.get('hash'):
+                                transcriptions[entry['hash']] = entry['transcription']
+                            if entry.get('uuid'):
+                                transcriptions[entry['uuid']] = entry['transcription']
+                
+                logger.info(f"  - {len(transcriptions)} transcriptions après ajout du registre (objet)")
+            except Exception as e:
+                logger.debug(f"Registre objet non exploitable: {str(e)}")
+        
+        # 3. Tenter de lire le registre unifié comme fichier JSON (structure différente)
+        try:
+            registry_file = os.path.join(self.output_dir, '.unified_registry.json')
+            if os.path.exists(registry_file):
+                with open(registry_file, 'r', encoding='utf-8') as f:
+                    registry_data = json.load(f)
+                    
+                    # Structure potentielle: {"version": "...", "contacts": {"contact1": {"files": [...], "stats": {...}}}}
+                    if isinstance(registry_data, dict) and 'contacts' in registry_data:
+                        contacts_data = registry_data['contacts']
+                        for contact, data in contacts_data.items():
+                            # Vérifier s'il y a des transcriptions dans les données de contact
+                            if 'files' in data:
+                                for file_hash in data['files']:
+                                    # Chercher dans le registre si ce fichier a une transcription
+                                    if file_hash in transcriptions:
+                                        logger.debug(f"Transcription trouvée pour le hash {file_hash[:10]}...")
+                    
+                    logger.info(f"  - {len(transcriptions)} transcriptions après analyse du fichier registre")
+        except Exception as e:
+            logger.debug(f"Erreur lors de l'analyse du fichier registre: {str(e)}")
+        
+        # 4. Chercher également dans les fichiers .txt (pour compatibilité)
+        try:
+            txt_files = [f for f in os.listdir(mappings_dir) if f.endswith('.txt')]
+            for txt_file in txt_files:
+                file_path = os.path.join(mappings_dir, txt_file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content:
+                            audio_id = txt_file.replace('.txt', '')
+                            transcriptions[audio_id] = content
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        
+        logger.info(f"  - Total final: {len(transcriptions)} transcriptions disponibles")
+        return transcriptions
+    
+    def _extract_name_and_phone(self, contact: str) -> Tuple[str, str]:
+        """Extrait le numéro de téléphone et le prénom à partir du nom du dossier contact"""
+        # Format international ex: _33_6_12_34_56_78
+        intl_match = re.match(r'^_(\d+)_(\d+)_(\d+)(?:_(\d+))?(?:_(\d+))?(?:_(\d+))?(?:_(\d+))?(?:_(\d+))?', contact)
+        if intl_match:
+            groups = [g for g in intl_match.groups() if g]
+            if len(groups) >= 2:
+                phone = '+' + ''.join(groups)
+                # Si le format est déjà avec underscore, le garder tel quel
+                return phone, contact
+        
+        # Format local simple ex: 0612345678_John
+        local_match = re.match(r'^(\d+)(?:_(.+))?$', contact)
+        if local_match and local_match.group(1):
+            phone = local_match.group(1)
+            name = local_match.group(2) or contact
+            return phone, name
+        
+        # Format avec préfixe webi ex: John_webi123
+        webi_match = re.match(r'^(.+?)_webi\d+$', contact)
+        if webi_match:
+            name = webi_match.group(1)
+            return "Non identifié", name
+            
+        # Cas par défaut : tout le nom est le prénom, pas de numéro identifié
+        return "Non identifié", contact
+    
+    def _generate_simplified_csv(self, conversations, transcriptions):
+        """Génère le CSV simplifié avec uniquement deux colonnes"""
+        logger.info("Génération du fichier CSV simplifié à deux colonnes...")
+        
+        csv_file = os.path.join(self.output_dir, 'contacts_messages_simplifies.csv')
+        rows = []
+        
+        # Inclure TOUS les contacts
+        for contact, messages in conversations.items():
+            # Filtrer seulement les messages reçus
+            received_msgs = [m for m in messages if m.get('direction') == 'received']
+            
+            # Extraire prénom et numéro
+            phone, name = self._extract_name_and_phone(contact)
+            
+            # Déterminer quelle valeur utiliser pour la colonne A
+            # Si le prénom existe, l'utiliser, sinon utiliser le numéro
+            contact_identifier = name if name and name != contact else phone
+            
+            # Préparer tous les messages reçus
+            all_messages = []
+            
+            # Si ce contact a des messages reçus
+            if received_msgs:
+                for msg in received_msgs:
+                    date_time = f"{msg.get('date', 'XXXX-XX-XX')} {msg.get('time', 'XX:XX')}"
+                    
+                    if msg.get('type') == 'text':
+                        all_messages.append(f"[{date_time}] {msg.get('content', '')}")
+                    elif msg.get('type') == 'audio':
+                        # Essayer de récupérer une transcription
+                        transcription = None
+                        
+                        # 1. Vérifier si déjà intégrée
+                        if msg.get('transcription'):
+                            transcription = msg.get('transcription')
+                        
+                        # 2. Sinon chercher par différentes clés
+                        else:
+                            # Récupérer toutes les clés possibles
+                            audio_name = os.path.basename(msg.get('media_path', '')) 
+                            audio_hash = msg.get('hash')
+                            uuid = msg.get('uuid')
+                            
+                            # Essayer de trouver par nom de fichier
+                            if audio_name and audio_name in transcriptions:
+                                transcription = transcriptions[audio_name]
+                            # Essayer par hash
+                            elif audio_hash and audio_hash in transcriptions:
+                                transcription = transcriptions[audio_hash]
+                            # Essayer par UUID
+                            elif uuid and uuid in transcriptions:
+                                transcription = transcriptions[uuid]
+                        
+                        if transcription:
+                            all_messages.append(f"[{date_time}] [AUDIO TRANSCRIT]: {transcription}")
+                        else:
+                            all_messages.append(f"[{date_time}] [Audio non transcrit]")
+            
+            # Joindre tous les messages avec un séparateur
+            all_texts = " | ".join(all_messages)
+            
+            row = {
+                'Contact': contact_identifier,
+                'Messages reçus': all_texts
+            }
+            
+            rows.append(row)
+        
+        # Écrire le fichier CSV
+        if rows:
+            fieldnames = ['Contact', 'Messages reçus']
+            with open(csv_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+                
+            logger.info(f"CSV simplifié généré avec {len(rows)} contacts: {csv_file}")
+            with_msgs = sum(1 for r in rows if r['Messages reçus'])
+            logger.info(f"  - Dont {with_msgs} avec des messages reçus")
+            with_audio = sum(1 for r in rows if '[AUDIO TRANSCRIT]' in r['Messages reçus'])
+            logger.info(f"  - Dont {with_audio} avec des transcriptions audio")
+        else:
+            logger.warning("Aucun contact trouvé pour générer le CSV")
+            
+    def _generate_excel_version(self):
+        """Génère une version Excel du fichier CSV si pandas est disponible"""
+        csv_file = os.path.join(self.output_dir, 'contacts_messages_simplifies.csv')
+        
+        if os.path.exists(csv_file):
+            try:
+                import pandas as pd
+                excel_file = csv_file.replace('.csv', '.xlsx')
+                df = pd.read_csv(csv_file, encoding='utf-8')
+                df.to_excel(excel_file, index=False)
+                logger.info(f"Version Excel générée: {excel_file}")
+            except Exception as e:
+                logger.debug(f"pandas non disponible, pas de version Excel: {str(e)}")
+ 
+Ajout de exporters\csv_exporter.py 
+========================================= 
+import os
+import csv
+import re
+import logging
+from datetime import datetime
+from typing import Dict, List, Tuple
+
+from core import UnifiedRegistry, FileManager
+
+logger = logging.getLogger('whatsapp_extractor')
+
+class CSVExporter:
+    """
+    Exporteur intelligent qui lit toutes_conversations_avec_transcriptions.txt
+    et génère 4 fichiers clairs
+    """
+    
+    def __init__(self, config, registry: UnifiedRegistry, file_manager: FileManager):
+        self.config = config
+        self.registry = registry
+        self.file_manager = file_manager
+        self.output_dir = config.get('Paths', 'output_dir')
+        self.cell_limit = 50000  # Limite Excel par cellule
+        
+    def export_special_csv(self, conversations: Dict[str, List[Dict]], received_only: bool = False):
+        """Point d'entrée principal - lit le fichier qui marche et génère les exports CSV
+        
+        Args:
+            conversations: Dictionnaire des conversations
+            received_only: Si True, génère uniquement l'export des messages reçus
+        """
+        logger.info("=== GÉNÉRATION DES EXPORTS CSV À PARTIR DU FICHIER QUI MARCHE ===")
+        if received_only:
+            logger.info("Mode export minimal: uniquement messages reçus")
+            # En mode minimal, utiliser le fichier de messages reçus
+            source_file = os.path.join(self.output_dir, 'messages_recus_avec_transcriptions.txt')
+            logger.info(f"Utilisation du fichier source: {source_file}")
+        else:
+            # Mode standard - utiliser le fichier global
+            source_file = os.path.join(self.output_dir, 'toutes_conversations_avec_transcriptions.txt')
+            logger.info(f"Utilisation du fichier source: {source_file}")
+            
+        if not os.path.exists(source_file):
+            logger.warning(f"Le fichier {os.path.basename(source_file)} n'existe pas encore")
+            logger.info("Attendez que le merger ait fini de le créer")
+            return
+            
+        logger.info(f"Lecture du fichier source: {source_file}")
+        
+        # 2. Parser le fichier
+        parsed_data = self._parse_master_file(source_file)
+        
+        if not parsed_data:
+            logger.error("Aucune donnée parsée du fichier source")
+            return
+            
+        # 3. Générer les fichiers
+        # Si received_only est activé, on ne génère que les fichiers de messages reçus
+        if not received_only:
+            self._generate_txt_files(parsed_data)
+        self._generate_csv_files(parsed_data, received_only)
+        
+        logger.info("✅ Export terminé avec succès !")
+    
+    def _parse_master_file(self, file_path: str) -> Dict[str, Dict[str, List[str]]]:
+        """
+        Parse le fichier toutes_conversations_avec_transcriptions.txt
+        
+        Returns:
+            Dict avec structure:
+            {
+                'contact1': {
+                    'all': [tous les messages],
+                    'received': [messages reçus only]
+                },
+                ...
+            }
+        """
+        logger.info("Début du parsing du fichier maître...")
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            logger.error(f"Erreur lecture fichier: {str(e)}")
+            return {}
+        
+        parsed_data = {}
+        current_contact = None
+        
+        # Patterns pour détecter les sections et messages
+        contact_pattern = r'CONVERSATION AVEC:\s*(.+)'
+        message_pattern = r'\[(\d{4}/\d{2}/\d{2})\s+(\d{2}:\d{2})\]\s*(←|→)\s*(.+)'
+        
+        lines = content.split('\n')
+        
+        for line in lines:
+            # Détecter nouveau contact
+            contact_match = re.search(contact_pattern, line)
+            if contact_match:
+                current_contact = contact_match.group(1).strip()
+                logger.info(f"Contact trouvé: {current_contact}")
+                if current_contact not in parsed_data:
+                    parsed_data[current_contact] = {
+                        'all': [],
+                        'received': []
+                    }
+                continue
+            
+            # Détecter message
+            if current_contact:
+                message_match = re.search(message_pattern, line)
+                if message_match:
+                    date = message_match.group(1)
+                    time = message_match.group(2)
+                    direction = message_match.group(3)
+                    content = message_match.group(4).strip()
+                    
+                    # Formater le message
+                    formatted_msg = f"[{date} {time}] {content}"
+                    
+                    # Ajouter à 'all'
+                    parsed_data[current_contact]['all'].append(formatted_msg)
+                    
+                    # Si reçu (←), ajouter aussi à 'received'
+                    if direction == '←':
+                        parsed_data[current_contact]['received'].append(formatted_msg)
+        
+        # Résumé du parsing
+        total_contacts = len(parsed_data)
+        total_messages = sum(len(data['all']) for data in parsed_data.values())
+        total_received = sum(len(data['received']) for data in parsed_data.values())
+        
+        logger.info(f"Parsing terminé:")
+        logger.info(f"  - Contacts: {total_contacts}")
+        logger.info(f"  - Total messages: {total_messages}")
+        logger.info(f"  - Messages reçus: {total_received}")
+        
+        return parsed_data
+    
+    def _generate_txt_files(self, parsed_data: Dict[str, Dict[str, List[str]]]):
+        """Génère les 2 fichiers TXT"""
+        logger.info("Génération des fichiers TXT...")
+        
+        # 1. Messages reçus only
+        received_file = os.path.join(self.output_dir, 'messages_recus_only.txt')
+        with open(received_file, 'w', encoding='utf-8') as f:
+            f.write("MESSAGES REÇUS SEULEMENT (AVEC TRANSCRIPTIONS)\n")
+            f.write(f"Généré le: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("="*60 + "\n\n")
+            
+            total_received = 0
+            
+            for contact, data in parsed_data.items():
+                received_msgs = data['received']
+                if received_msgs:
+                    f.write(f"\n{'='*40}\n")
+                    f.write(f"CONTACT: {contact}\n")
+                    f.write(f"Messages reçus: {len(received_msgs)}\n")
+                    f.write(f"{'='*40}\n\n")
+                    
+                    for msg in received_msgs:
+                        f.write(msg + "\n")
+                    
+                    total_received += len(received_msgs)
+            
+            f.write(f"\n\nTOTAL MESSAGES REÇUS: {total_received}\n")
+        
+        logger.info(f"✓ Créé: {received_file}")
+        
+        # 2. Tous les messages
+        all_file = os.path.join(self.output_dir, 'messages_all.txt')
+        with open(all_file, 'w', encoding='utf-8') as f:
+            f.write("TOUS LES MESSAGES (REÇUS + ENVOYÉS) AVEC TRANSCRIPTIONS\n")
+            f.write(f"Généré le: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("="*60 + "\n\n")
+            
+            total_all = 0
+            
+            for contact, data in parsed_data.items():
+                all_msgs = data['all']
+                if all_msgs:
+                    f.write(f"\n{'='*40}\n")
+                    f.write(f"CONTACT: {contact}\n")
+                    f.write(f"Total messages: {len(all_msgs)}\n")
+                    f.write(f"{'='*40}\n\n")
+                    
+                    for msg in all_msgs:
+                        f.write(msg + "\n")
+                    
+                    total_all += len(all_msgs)
+            
+            f.write(f"\n\nTOTAL TOUS MESSAGES: {total_all}\n")
+        
+        logger.info(f"✓ Créé: {all_file}")
+    
+    def _generate_csv_files(self, parsed_data: Dict[str, Dict[str, List[str]]], received_only: bool = False):
+        """Génère les fichiers CSV avec débordement sur colonnes
+        
+        Args:
+            parsed_data: Données parsées des fichiers
+            received_only: Si True, génère uniquement le CSV des messages reçus
+        """
+        logger.info("Génération des fichiers CSV...")
+        
+        # 1. Messages reçus only (toujours généré)
+        self._write_csv(
+            {contact: data['received'] for contact, data in parsed_data.items()},
+            'messages_recus_only.csv',
+            'Messages Reçus avec Transcriptions'
+        )
+        
+        # 2. Tous les messages (uniquement si mode complet)
+        if not received_only:
+            logger.info("Génération du fichier CSV avec tous les messages...")
+            self._write_csv(
+                {contact: data['all'] for contact, data in parsed_data.items()},
+                'messages_all.csv',
+                'Tous les Messages avec Transcriptions'
+            )
+    
+    def _write_csv(self, messages_dict: Dict[str, List[str]], filename: str, description: str):
+        """
+        Écrit un fichier CSV avec gestion du débordement sur colonnes
+        Format: Contact | Messages | Suite... | Suite...
+        """
+        csv_file = os.path.join(self.output_dir, filename)
+        
+        with open(csv_file, 'w', encoding='utf-8', newline='') as f:
+            # Calculer le nombre max de colonnes nécessaires
+            max_columns = 1
+            for messages in messages_dict.values():
+                if messages:
+                    # Joindre tous les messages avec séparateur
+                    content = " | ".join(messages)
+                    # Calculer combien de colonnes il faut
+                    columns_needed = (len(content) // self.cell_limit) + 1
+                    max_columns = max(max_columns, columns_needed)
+            
+            # Créer l'en-tête
+            headers = ['Contact/Téléphone']
+            for i in range(max_columns):
+                if i == 0:
+                    headers.append(description)
+                else:
+                    headers.append(f'Suite (partie {i+1})')
+            
+            writer = csv.writer(f)
+            writer.writerow(headers)
+            
+            # Écrire les données
+            for contact, messages in sorted(messages_dict.items()):
+                if not messages:
+                    continue
+                    
+                row = [contact]
+                
+                # Joindre tous les messages
+                content = " | ".join(messages)
+                
+                # Diviser en chunks si nécessaire
+                for i in range(0, len(content), self.cell_limit):
+                    chunk = content[i:i + self.cell_limit]
+                    row.append(chunk)
+                
+                # Compléter avec des cellules vides si nécessaire
+                while len(row) < len(headers):
+                    row.append('')
+                
+                writer.writerow(row)
+        
+        logger.info(f"✓ Créé: {csv_file} ({len([m for m in messages_dict.values() if m])} contacts)")
+        
+        # Créer aussi la version Excel si pandas est disponible
+        try:
+            import pandas as pd
+            df = pd.read_csv(csv_file, encoding='utf-8')
+            excel_file = csv_file.replace('.csv', '.xlsx')
+            df.to_excel(excel_file, index=False, engine='openpyxl')
+            logger.info(f"✓ Créé aussi: {excel_file}")
+        except Exception as e:
+            logger.debug(f"Pas de conversion Excel (pandas non installé): {e}") 
+Ajout de exporters\merger.py 
+========================================= 
+import os
+import re
+import json
+import logging
+from typing import Dict, List, Optional
+
+from core import UnifiedRegistry, FileManager
+
+logger = logging.getLogger('whatsapp_extractor')
+
+class TranscriptionMerger:
+    """
+    MERGER CORRIGE - Fusionne les transcriptions avec correspondance exacte
+    """
+    
+    def __init__(self, config, registry: UnifiedRegistry, file_manager: FileManager):
+        self.config = config
+        self.registry = registry
+        self.file_manager = file_manager
+        self.output_dir = config.get('Paths', 'output_dir')
+        
+        # NOUVEAU: Charger les correspondances creees par le transcripteur
+        self.transcription_mappings = self._load_all_mappings()
+        
+        # NOUVEAU: Creer un mapping inverse OPUS -> MP3
+        self.opus_to_mp3_mapping = self._build_opus_to_mp3_mapping()
+        
+        # NOUVEAU: Creer un mapping UUID -> transcription
+        self.uuid_to_transcription = self._build_uuid_mapping()
+        # NOUVEAU: Charger les fichiers texte de transcription
+        self.text_file_mapping = self._load_transcription_text_files()
+    
+    def _load_all_mappings(self) -> Dict[str, Dict]:
+        """NOUVEAU: Charge toutes les correspondances fichier -> transcription"""
+        mappings = {}
+        mapping_dir = os.path.join(self.output_dir, '.transcription_mappings')
+        
+        if not os.path.exists(mapping_dir):
+            logger.warning("Repertoire de correspondances non trouve")
+            return mappings
+        
+        # Charger tous les fichiers de correspondance
+        for file in os.listdir(mapping_dir):
+            if file.endswith('_mappings.json'):
+                contact = file.replace('_mappings.json', '')
+                mapping_file = os.path.join(mapping_dir, file)
+                
+                try:
+                    with open(mapping_file, 'r', encoding='utf-8') as f:
+                        contact_mappings = json.load(f)
+                        mappings[contact] = contact_mappings
+                        logger.info(f"Correspondances chargees pour {contact}: {len(contact_mappings)} fichiers")
+                except Exception as e:
+                    logger.error(f"Erreur chargement correspondances {contact}: {str(e)}")
+        
+        total_mappings = sum(len(cm) for cm in mappings.values())
+        logger.info(f"Total correspondances chargees: {total_mappings}")
+        return mappings
+    
+    def _build_opus_to_mp3_mapping(self) -> Dict[str, str]:
+        """NOUVEAU: Construit un mapping OPUS -> MP3 base sur les conversions"""
+        mapping = {}
+        
+        # Parcourir le registre pour trouver les conversions
+        for file_hash, file_info in self.registry.data.get('files', {}).items():
+            if file_info.get('type') == 'audio':
+                original_path = file_info.get('path', '')
+                converted_path = file_info.get('converted_path', '')
+                
+                if original_path and converted_path:
+                    opus_name = os.path.basename(original_path)
+                    mp3_name = os.path.basename(converted_path)
+                    mapping[opus_name] = mp3_name
+                    logger.debug(f"Mapping: {opus_name} -> {mp3_name}")
+        
+        logger.info(f"Mapping OPUS->MP3 construit: {len(mapping)} correspondances")
+        return mapping
+    
+    def _build_uuid_mapping(self) -> Dict[str, str]:
+        """NOUVEAU: Construit un mapping UUID -> transcription"""
+        uuid_mapping = {}
+        
+        # Extraire les UUID des fichiers MP3 et chercher leurs transcriptions
+        for contact, mappings in self.transcription_mappings.items():
+            for mp3_name, data in mappings.items():
+                # Extraire l'UUID du nom MP3
+                uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', mp3_name)
+                if uuid_match:
+                    uuid = uuid_match.group(1)
+                    transcription = data.get('transcription', '')
+                    if transcription:
+                        uuid_mapping[uuid] = transcription
+                        logger.debug(f"UUID mapping: {uuid} -> {len(transcription)} chars")
+        
+        logger.info(f"Mapping UUID->Transcription construit: {len(uuid_mapping)} correspondances")
+        return uuid_mapping
+    
+    
+    def _load_transcription_text_files(self):
+        """NOUVELLE STRATEGIE: Charge les fichiers texte de transcription"""
+        text_file_mapping = {}
+        
+        # Parcourir tous les dossiers de contact
+        for contact in os.listdir(self.output_dir):
+            contact_dir = os.path.join(self.output_dir, contact)
+            if not os.path.isdir(contact_dir):
+                continue
+            
+            trans_dir = os.path.join(contact_dir, 'transcriptions')
+            if not os.path.exists(trans_dir):
+                continue
+            
+            # Charger tous les fichiers de transcription
+            for file in os.listdir(trans_dir):
+                if file.endswith('.txt'):
+                    full_path = os.path.join(trans_dir, file)
+                    try:
+                        with open(full_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            
+                        # Extraire le nom du fichier audio et la transcription
+                        file_match = re.search(r'Transcription du fichier: (.*?)\n', content)
+                        if file_match:
+                            audio_file = file_match.group(1)
+                            # Extraire la transcription (apres les 5 premieres lignes)
+                            lines = content.split('\n')
+                            if len(lines) > 5:
+                                transcription = '\n'.join(lines[5:]).strip()
+                                
+                                # Creer une cle par contact et par fichier
+                                if contact not in text_file_mapping:
+                                    text_file_mapping[contact] = {}
+                                
+                                # Stocker la transcription
+                                text_file_mapping[contact][audio_file] = transcription
+                                
+                                # Stocker aussi avec l'extension originale
+                                if audio_file.endswith('.mp3'):
+                                    opus_name = audio_file.replace('.mp3', '.opus')
+                                    text_file_mapping[contact][opus_name] = transcription
+                                
+                                # Extraire l'UUID pour une association directe
+                                uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', audio_file)
+                                if uuid_match:
+                                    uuid = uuid_match.group(1)
+                                    # Stocker avec juste l'UUID pour correspondre aux references dans les conversations
+                                    text_file_mapping[contact][uuid + '.opus'] = transcription
+                    
+                    except Exception as e:
+                        logger.error(f"Erreur lecture transcription {file}: {str(e)}")
+        
+        logger.info(f"Transcriptions chargees depuis fichiers texte: {sum(len(files) for files in text_file_mapping.values())} fichiers")
+        return text_file_mapping
+
+    def merge_all_transcriptions(self, minimal_export: bool = False):
+        """Fusionne les transcriptions avec correspondance parfaite
+        
+        Args:
+            minimal_export: Si True, fusionne uniquement les fichiers de messages reçus
+        """
+        logger.info("=== FUSION TRANSCRIPTIONS AVEC CORRESPONDANCE EXACTE ===")
+        
+        if minimal_export:
+            logger.info("Mode export minimal activé - uniquement fusion des messages reçus")
+            # Uniquement les fichiers de messages reçus
+            self._merge_received_files()
+        else:
+            # 1. Fichier global
+            self._merge_global_file()
+            
+            # 2. Fichiers par contact
+            self._merge_contact_files()
+            
+            # 3. Fichiers messages recus
+            self._merge_received_files()
+        
+        logger.info("Fusion terminée avec correspondances exactes")
+    
+    def _merge_global_file(self):
+        """Met a jour le fichier global avec les transcriptions"""
+        source = os.path.join(self.output_dir, 'toutes_conversations.txt')
+        target = os.path.join(self.output_dir, 'toutes_conversations_avec_transcriptions.txt')
+        
+        if not os.path.exists(source):
+            logger.warning(f"Fichier source non trouve: {source}")
+            return
+        
+        try:
+            with open(source, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Remplacer avec la nouvelle methode
+            updated_content = self._replace_audio_references_exact(content)
+            
+            with open(target, 'w', encoding='utf-8') as f:
+                f.write(updated_content)
+            
+            logger.info(f"Fichier global avec transcriptions cree: {target}")
+            
+        except Exception as e:
+            logger.error(f"Erreur fusion fichier global: {str(e)}")
+    
+    def _merge_contact_files(self):
+        """Met a jour les fichiers de chaque contact"""
+        merged_count = 0
+        
+        for contact in os.listdir(self.output_dir):
+            contact_path = os.path.join(self.output_dir, contact)
+            if not os.path.isdir(contact_path) or contact.startswith('.'):
+                continue
+            
+            # Fichier tous messages
+            source = os.path.join(contact_path, 'tous_messages.txt')
+            if os.path.exists(source):
+                target = os.path.join(contact_path, 'tous_messages_avec_transcriptions.txt')
+                
+                try:
+                    with open(source, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    updated_content = self._replace_audio_references_exact(content, contact)
+                    
+                    with open(target, 'w', encoding='utf-8') as f:
+                        f.write(updated_content)
+                    
+                    merged_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Erreur fusion pour {contact}: {str(e)}")
+        
+        logger.info(f"Fichiers fusionnes pour {merged_count} contacts")
+    
+    def _merge_received_files(self):
+        """Met a jour les fichiers de messages recus"""
+        # Fichier global
+        source = os.path.join(self.output_dir, 'messages_recus.txt')
+        if os.path.exists(source):
+            target = os.path.join(self.output_dir, 'messages_recus_avec_transcriptions.txt')
+            
+            try:
+                with open(source, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                updated_content = self._replace_audio_references_exact(content)
+                
+                with open(target, 'w', encoding='utf-8') as f:
+                    f.write(updated_content)
+                    
+            except Exception as e:
+                logger.error(f"Erreur fusion messages recus global: {str(e)}")
+        
+        # Fichiers par contact
+        for contact in os.listdir(self.output_dir):
+            contact_path = os.path.join(self.output_dir, contact)
+            if not os.path.isdir(contact_path):
+                continue
+            
+            source = os.path.join(contact_path, 'messages_recus.txt')
+            if os.path.exists(source):
+                target = os.path.join(contact_path, 'messages_recus_avec_transcriptions.txt')
+                
+                try:
+                    with open(source, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    updated_content = self._replace_audio_references_exact(content, contact)
+                    
+                    with open(target, 'w', encoding='utf-8') as f:
+                        f.write(updated_content)
+                        
+                except Exception as e:
+                    logger.error(f"Erreur fusion messages recus {contact}: {str(e)}")
+    
+    def _replace_audio_references_exact(self, content: str, specific_contact: str = None) -> str:
+        """
+        METHODE CORRIGEE: Remplace les references [AUDIO] par les vraies transcriptions
+        """
+        # Pattern pour trouver les references audio
+        pattern = r'\[AUDIO\]\s+([^\n\[\]]+)'
+        replacements_made = 0
+        
+        def replace_func(match):
+            nonlocal replacements_made
+            audio_file = match.group(1).strip()
+            
+            # Traiter le cas des fichiers sans extension
+            if not audio_file.endswith('.opus') and not audio_file.endswith('.mp3'):
+                # Si c'est juste un UUID, lui ajouter l'extension .opus
+                uuid_match = re.search(r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$', audio_file)
+                if uuid_match:
+                    audio_file = f"{audio_file}.opus"
+                    logger.debug(f"Extension ajoutee: {audio_file}")
+            
+            # Essayer de trouver la transcription avec correspondance exacte
+            transcription = self._find_transcription_exact(audio_file, specific_contact)
+            
+            if transcription and len(transcription.strip()) > 10:
+                replacements_made += 1
+                logger.info(f"[OK] Transcription trouvee pour {audio_file}")
+                return f'[AUDIO TRANSCRIT] "{transcription}"'
+            else:
+                logger.warning(f"[X] Pas de transcription pour {audio_file}")
+                return f'[AUDIO] {audio_file}'
+        
+        result = re.sub(pattern, replace_func, content)
+        
+        if specific_contact:
+            logger.info(f"Contact {specific_contact}: {replacements_made} transcriptions ajoutees")
+        else:
+            logger.info(f"Global: {replacements_made} transcriptions ajoutees")
+        
+        return result
+    
+    def _find_transcription_exact(self, audio_reference: str, contact: str = None) -> Optional[str]:
+        """
+        METHODE AMELIOREE: Trouve la transcription avec plusieurs strategies
+        """
+        audio_name = audio_reference.strip()
+        logger.debug(f"Recherche transcription pour: {audio_name}")
+        
+        # STRATEGIE 1: Extraire l'UUID du fichier OPUS
+        uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', audio_name)
+        if uuid_match:
+            uuid = uuid_match.group(1)
+            logger.debug(f"UUID extrait: {uuid}")
+            
+            # Chercher directement dans le mapping UUID
+            if uuid in self.uuid_to_transcription:
+                transcription = self.uuid_to_transcription[uuid]
+                logger.info(f"Transcription trouvee par UUID: {uuid}")
+                return transcription
+        
+        # STRATEGIE 2: Si c'est un OPUS, trouver le MP3 correspondant
+        if audio_name.endswith('.opus'):
+            mp3_name = self.opus_to_mp3_mapping.get(audio_name)
+            if mp3_name:
+                logger.debug(f"OPUS->MP3: {audio_name} -> {mp3_name}")
+                
+                # Chercher dans les mappings avec le nom MP3
+                if contact and contact in self.transcription_mappings:
+                    contact_mappings = self.transcription_mappings[contact]
+                    if mp3_name in contact_mappings:
+                        transcription = contact_mappings[mp3_name]['transcription']
+                        logger.info(f"Transcription trouvee via mapping MP3: {mp3_name}")
+                        return transcription
+        
+        # STRATEGIE 3: Correspondance directe via les mappings
+        if contact and contact in self.transcription_mappings:
+            contact_mappings = self.transcription_mappings[contact]
+            
+            # Correspondance exacte du nom
+            if audio_name in contact_mappings:
+                transcription = contact_mappings[audio_name]['transcription']
+                logger.info(f"Correspondance exacte trouvee: {audio_name}")
+                return transcription
+        
+        
+        # NOUVELLE STRATEGIE (3.5): Correspondance par UUID pur
+        # Cette stratégie extrait l'UUID du nom du fichier audio et cherche
+        # dans tous les mappings s'il existe une transcription avec cet UUID
+        uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', audio_name)
+        if uuid_match:
+            uuid = uuid_match.group(1)
+            logger.debug(f"Recherche par UUID pur: {uuid}")
+            
+            # Parcourir tous les contacts et leurs mappings
+            for contact_name, contact_maps in self.transcription_mappings.items():
+                for mp3_name, data in contact_maps.items():
+                    if uuid in mp3_name:
+                        transcription = data.get('transcription', '')
+                        if transcription and len(transcription) > 10:
+                            logger.info(f"Correspondance par UUID pur trouvée: {uuid} dans {mp3_name}")
+                            return transcription
+        
+        
+        # NOUVELLE STRATEGIE (3.7): Recherche dans les fichiers texte de transcription
+        if contact and contact in self.text_file_mapping:
+            contact_texts = self.text_file_mapping[contact]
+            
+            # Recherche exacte par nom de fichier
+            if audio_name in contact_texts:
+                transcription = contact_texts[audio_name]
+                logger.info(f"Transcription trouvee dans fichier texte (nom exact): {audio_name}")
+                return transcription
+            
+            # Recherche par UUID seul
+            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', audio_name)
+            if uuid_match:
+                uuid = uuid_match.group(1)
+                # Chercher tous les fichiers avec cet UUID
+                for file_name, trans in contact_texts.items():
+                    if uuid in file_name:
+                        logger.info(f"Transcription trouvee dans fichier texte (UUID): {uuid}")
+                        return trans
+        
+        # RECHERCHE GLOBALE: Chercher dans TOUS les contacts
+        for other_contact, contact_texts in self.text_file_mapping.items():
+            # Recherche par UUID
+            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', audio_name)
+            if uuid_match:
+                uuid = uuid_match.group(1)
+                for file_name, trans in contact_texts.items():
+                    if uuid in file_name:
+                        logger.info(f"Transcription trouvee dans fichier texte (autre contact): {other_contact}")
+                        return trans
+
+        # STRATEGIE 4: Recherche par hash dans le registre
+        # Chercher tous les fichiers audio du contact
+        for file_hash, file_info in self.registry.data.get('files', {}).items():
+            if file_info.get('type') == 'audio' and file_info.get('contact') == contact:
+                file_path = file_info.get('path', '')
+                if audio_name in file_path:
+                    # Verifier si ce hash a une transcription
+                    trans_data = self.registry.data.get('transcriptions', {}).get(file_hash)
+                    if trans_data:
+                        transcription = trans_data.get('text', '')
+                        if transcription and len(transcription) > 10:
+                            logger.info(f"Transcription trouvee par hash fichier OPUS")
+                            return transcription
+                    
+                    # Verifier aussi le hash du MP3 converti
+                    converted_path = file_info.get('converted_path', '')
+                    if converted_path:
+                        mp3_hash = self.registry.get_file_hash(converted_path)
+                        if mp3_hash:
+                            trans_data = self.registry.data.get('transcriptions', {}).get(mp3_hash)
+                            if trans_data:
+                                transcription = trans_data.get('text', '')
+                                if transcription and len(transcription) > 10:
+                                    logger.info(f"Transcription trouvee par hash MP3")
+                                    return transcription
+        
+        # STRATEGIE 5: Recherche dans toutes les transcriptions du contact
+        if contact and contact in self.transcription_mappings:
+            # Si on n'a pas trouve par nom exact, chercher par pattern
+            for mp3_name, data in self.transcription_mappings[contact].items():
+                transcription = data.get('transcription', '')
+                if transcription and len(transcription) > 10:
+                    # Verifier si les fichiers pourraient correspondre
+                    if self._files_might_match(audio_name, mp3_name):
+                        logger.info(f"Correspondance probable: {audio_name} -> {mp3_name}")
+                        return transcription
+        
+        return None
+    
+    def _files_might_match(self, opus_name: str, mp3_name: str) -> bool:
+        """Verifie si deux fichiers pourraient correspondre"""
+        # Extraire la direction
+        opus_direction = 'sent' if 'sent' in opus_name else 'received'
+        mp3_direction = 'sent' if 'sent' in mp3_name else 'received'
+        
+        # Meme direction = potentiellement le meme fichier
+        if opus_direction != mp3_direction:
+            return False
+            
+        # Extraire les UUID des deux fichiers
+        opus_uuid = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', opus_name)
+        mp3_uuid = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', mp3_name)
+        
+        if opus_uuid and mp3_uuid:
+            return opus_uuid.group(1) == mp3_uuid.group(1)
+            
+        return False 
+Ajout de fix_export.py 
+========================================= 
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Script correctif pour résoudre les problèmes d'export CSV
+Ce script modifie l'exportateur PhoneNameCSVExporter pour qu'il fonctionne
+même si les fichiers fusionnés sont vides ou manquants.
+"""
+
+import os
+import sys
+import re
+import csv
+import configparser
+import logging
+from collections import defaultdict
+from typing import Dict, List, Optional
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger("fix_export")
+
+class ExportFixer:
+    def __init__(self, output_dir=None):
+        """Initialise le correcteur avec le répertoire de sortie"""
+        config = configparser.ConfigParser()
+        
+        try:
+            config.read('config.ini')
+            self.output_dir = config.get('Paths', 'output_dir')
+        except Exception:
+            # Fallback
+            self.output_dir = output_dir or os.path.join(os.path.expanduser('~'), 'Desktop', 'DataLeads')
+        
+        logger.info(f"Répertoire cible: {self.output_dir}")
+    
+    def fix_phone_name_csv_export(self):
+        """Génère l'export CSV simplifié directement à partir des données brutes"""
+        logger.info("Génération de l'export CSV simplifié (contacts_messages_simplifies.csv)")
+        
+        # 1. Collecter les données directement des fichiers de messages par contact
+        conversations = self._collect_contact_messages()
+        
+        # 2. Collecter les transcriptions disponibles
+        transcriptions = self._collect_transcriptions()
+        
+        # 3. Générer le CSV simplifié
+        self._generate_simplified_csv(conversations, transcriptions)
+        
+    def _collect_contact_messages(self):
+        """Collecte les messages de tous les contacts directement depuis les fichiers"""
+        logger.info("Collecte des messages par contact...")
+        conversations = defaultdict(list)
+        
+        # Parcourir tous les dossiers de contacts
+        contact_dirs = [d for d in os.listdir(self.output_dir) 
+                       if os.path.isdir(os.path.join(self.output_dir, d))
+                       and not d.startswith('.')]
+        
+        logger.info(f"Nombre de contacts trouvés: {len(contact_dirs)}")
+        
+        for contact in contact_dirs:
+            contact_path = os.path.join(self.output_dir, contact)
+            
+            # D'abord essayer le fichier avec transcriptions
+            message_files = [
+                os.path.join(contact_path, 'messages_recus_avec_transcriptions.txt'),
+                os.path.join(contact_path, 'messages_recus.txt'),
+                os.path.join(contact_path, 'all_messages.txt')
+            ]
+            
+            for msg_file in message_files:
+                if os.path.exists(msg_file) and os.path.getsize(msg_file) > 0:
+                    messages = self._parse_message_file(msg_file, contact)
+                    if messages:
+                        conversations[contact].extend(messages)
+                        logger.info(f"  - {contact}: {len(messages)} messages trouvés")
+                    break
+        
+        return dict(conversations)
+    
+    def _parse_message_file(self, file_path, contact):
+        """Parse un fichier de messages pour extraire les données"""
+        messages = []
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+            # Pattern pour les messages
+            pattern = r'\[([\d/]+)\s+([\d:]+)\]\s+(.+?):\s+(.*?)(?=\n\[|\Z)'
+            matches = re.findall(pattern, content, re.DOTALL)
+            
+            for match in matches:
+                date, time, direction, text = match
+                
+                # Déterminer si c'est reçu ou envoyé
+                is_received = not any(x in direction.lower() for x in ['vous', 'you', 'me', 'moi'])
+                
+                if is_received:  # On ne garde que les messages reçus
+                    # Rechercher une transcription dans le texte
+                    has_audio = '[AUDIO]' in text
+                    transcription = None
+                    
+                    trans_match = re.search(r'\[TRANSCRIPTION:\s*(.*?)\s*\]', text)
+                    if trans_match:
+                        transcription = trans_match.group(1)
+                        text = text.replace(f'[AUDIO] [TRANSCRIPTION: {transcription}]', transcription)
+                    elif has_audio:
+                        # Marquer pour récupération ultérieure
+                        text = text.replace('[AUDIO]', '[Audio non transcrit]')
+                    
+                    message = {
+                        'date': date,
+                        'time': time,
+                        'direction': 'received',
+                        'content': text.strip(),
+                        'contact': contact,
+                        'type': 'audio' if has_audio else 'text',
+                        'transcription': transcription
+                    }
+                    messages.append(message)
+        
+        except Exception as e:
+            logger.error(f"Erreur parsing {file_path}: {str(e)}")
+            
+        return messages
+    
+    def _collect_transcriptions(self):
+        """Collecte toutes les transcriptions disponibles du registre et des fichiers texte"""
+        logger.info("Collecte des transcriptions disponibles...")
+        transcriptions = {}
+        
+        # 1. Essayer de charger le registre unifié
+        registry_file = os.path.join(self.output_dir, '.unified_registry.json')
+        if os.path.exists(registry_file):
+            try:
+                import json
+                with open(registry_file, 'r', encoding='utf-8') as f:
+                    registry = json.load(f)
+                    
+                for hash_key, trans_data in registry.get('transcriptions', {}).items():
+                    audio_path = trans_data.get('audio_path', '')
+                    text = trans_data.get('text', '')
+                    
+                    if audio_path and text:
+                        audio_name = os.path.basename(audio_path)
+                        transcriptions[audio_name] = text
+                        
+                logger.info(f"  - {len(transcriptions)} transcriptions trouvées dans le registre")
+            except Exception as e:
+                logger.error(f"Erreur chargement registre: {str(e)}")
+        
+        # 2. Chercher les fichiers texte de transcription
+        for contact in os.listdir(self.output_dir):
+            contact_path = os.path.join(self.output_dir, contact)
+            if not os.path.isdir(contact_path):
+                continue
+                
+            trans_dir = os.path.join(contact_path, 'transcriptions')
+            if not os.path.exists(trans_dir):
+                continue
+                
+            for file_name in os.listdir(trans_dir):
+                if file_name.endswith('.txt'):
+                    try:
+                        with open(os.path.join(trans_dir, file_name), 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            
+                        # Extraire l'audio associé et la transcription
+                        audio_line = None
+                        for line in content.split('\n'):
+                            if line.startswith('Audio:'):
+                                audio_line = line.replace('Audio:', '').strip()
+                                break
+                        
+                        if audio_line:
+                            # Extraire la transcription (après la ligne 5)
+                            lines = content.split('\n')
+                            if len(lines) > 5:
+                                trans_text = '\n'.join(lines[5:]).strip()
+                                if trans_text:
+                                    # Si on a un nom de fichier complet, on garde juste le basename
+                                    if os.path.sep in audio_line:
+                                        audio_line = os.path.basename(audio_line)
+                                    transcriptions[audio_line] = trans_text
+                    except Exception as e:
+                        logger.error(f"Erreur lecture transcription {file_name}: {str(e)}")
+        
+        logger.info(f"  - Total: {len(transcriptions)} transcriptions trouvées")
+        return transcriptions
+    
+    def _generate_simplified_csv(self, conversations, transcriptions):
+        """Génère le CSV simplifié avec les colonnes numéro, prénom et messages"""
+        logger.info("Génération du fichier CSV simplifié...")
+        
+        csv_file = os.path.join(self.output_dir, 'contacts_messages_simplifies.csv')
+        rows = []
+        
+        # Garder TOUS les contacts, même ceux sans messages
+        contacts_with_messages = conversations.copy()  # Inclure tous les contacts, même sans messages
+        
+        for contact, messages in contacts_with_messages.items():
+            # Filtrer seulement les messages reçus (par sécurité)
+            received_msgs = [m for m in messages if m.get('direction') == 'received']
+            
+            # Extraire prénom et numéro
+            phone, name = self._extract_name_and_phone(contact)
+            
+            # Préparer tous les messages reçus
+            all_messages = []
+            
+            # Si ce contact a des messages reçus
+            if received_msgs:
+                for msg in received_msgs:
+                    date_time = f"{msg.get('date', 'XXXX-XX-XX')} {msg.get('time', 'XX:XX')}"
+                    
+                    if msg.get('type') == 'text':
+                        all_messages.append(f"[{date_time}] {msg.get('content', '')}")
+                    elif msg.get('type') == 'audio':
+                        # Essayer de récupérer une transcription déjà intégrée
+                        transcription = msg.get('transcription')
+                        
+                        # Si pas trouvée, chercher dans notre collection
+                        if not transcription and msg.get('media_path'):
+                            audio_name = os.path.basename(msg.get('media_path'))
+                            audio_hash = msg.get('hash')
+                            uuid = msg.get('uuid')
+                            
+                            if audio_hash and audio_hash in transcriptions:
+                                transcription = transcriptions[audio_hash]
+                            elif uuid and uuid in transcriptions:
+                                transcription = transcriptions[uuid]
+                            elif audio_name and audio_name in transcriptions:
+                                transcription = transcriptions[audio_name]
+                        
+                        if transcription:
+                            all_messages.append(f"[{date_time}] [AUDIO TRANSCRIT]: {transcription}")
+                        else:
+                            all_messages.append(f"[{date_time}] [Audio non transcrit]")
+            else:
+                # Pas de messages pour ce contact, mais on le garde quand même
+                all_messages = []  # Liste vide
+            
+            # Joindre tous les messages avec un séparateur
+            all_texts = " | ".join(all_messages)
+            
+            # Créer la ligne
+            row = {
+                'Numéro de téléphone': phone if phone else "Non identifié",
+                'Prénom': name if name else contact,
+                'Messages reçus': all_texts
+            }
+            
+            rows.append(row)
+        
+        # Écrire le fichier CSV
+        if rows:
+            fieldnames = ['Numéro de téléphone', 'Prénom', 'Messages reçus']
+            with open(csv_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+                
+            logger.info(f"CSV simplifié généré avec TOUS les {len(rows)} contacts: {csv_file}")
+            if len(rows) < len(conversations):
+                logger.warning(f"ATTENTION: Certains contacts n'ont pas été exportés ({len(conversations) - len(rows)} manquants)")
+            logger.info(f"  - Dont {sum(1 for r in rows if r['Messages reçus'])} avec des messages reçus")
+            
+            # Créer version Excel si possible
+            try:
+                import pandas as pd
+                excel_file = csv_file.replace('.csv', '.xlsx')
+                df = pd.read_csv(csv_file, encoding='utf-8')
+                df.to_excel(excel_file, index=False)
+                logger.info(f"Version Excel générée: {excel_file}")
+            except Exception as e:
+                logger.debug(f"pandas non disponible, pas de version Excel: {str(e)}")
+        else:
+            logger.warning("Aucun message reçu trouvé pour générer le CSV")
+    
+    def _extract_name_and_phone(self, contact):
+        """Extrait le numéro de téléphone et le prénom d'un nom de contact"""
+        # Pattern pour numéros internationaux (commence par + suivi de chiffres)
+        international_pattern = re.compile(r'(\+\d+(?:\s*\d+)*)')
+        # Pattern pour numéros locaux (commence par 0 suivi de chiffres)
+        local_pattern = re.compile(r'(0\d+(?:\s*\d+)*)')
+        # Pattern pour groupes de chiffres (au moins 6 chiffres consécutifs)
+        digits_pattern = re.compile(r'(\d{6,})')
+        
+        # 1. Essayer le pattern international
+        match = international_pattern.search(contact)
+        if match:
+            phone = match.group(1).strip()
+            # Le nom est tout ce qui reste après avoir enlevé le téléphone
+            name = contact.replace(phone, '').strip()
+            return phone, name if name else None
+            
+        # 2. Essayer le pattern local
+        match = local_pattern.search(contact)
+        if match:
+            phone = match.group(1).strip()
+            name = contact.replace(phone, '').strip()
+            return phone, name if name else None
+            
+        # 3. Chercher des groupes de chiffres
+        match = digits_pattern.search(contact)
+        if match:
+            phone = match.group(1).strip()
+            name = contact.replace(phone, '').strip()
+            return phone, name if name else None
+            
+        # 4. Vérifier si le contact sanitizé contient beaucoup de '_'
+        # ce qui pourrait indiquer un numéro sanitizé
+        if contact.count('_') > 5 and any(c.isdigit() for c in contact):
+            # Probablement un numéro sanitizé (comme _33_6_...)
+            return contact, None
+            
+        # Si aucun motif ne correspond, supposer que c'est un nom
+        return None, contact
+
+
+if __name__ == "__main__":
+    logger.info("=== CORRECTION DE L'EXPORT CSV SIMPLIFIÉ ===")
+    
+    fixer = ExportFixer()
+    fixer.fix_phone_name_csv_export()
+    
+    logger.info("=== TERMINÉ ===")
+    logger.info("Lancez 'python diagnostic_export.py' pour vérifier que tout est maintenant correct.")
+ 
+Ajout de diagnostic_export.py 
+========================================= 
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Script de diagnostic pour analyser les problèmes d'export CSV
+Ce script vérifie les fichiers d'entrée et de sortie, examine leur contenu
+et aide à comprendre pourquoi le processus d'export peut échouer.
+"""
+
+import os
+import sys
+import re
+import json
+import logging
+from datetime import datetime
+import configparser
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger("diagnostic")
+
+class ExportDiagnostic:
+    def __init__(self, output_dir=None):
+        """Initialise le diagnostic avec le répertoire de sortie"""
+        config = configparser.ConfigParser()
+        
+        try:
+            config.read('config.ini')
+            self.output_dir = config.get('Paths', 'output_dir')
+        except Exception:
+            # Fallback
+            self.output_dir = output_dir or os.path.join(os.path.expanduser('~'), 'Desktop', 'DataLeads')
+        
+        logger.info(f"Répertoire analysé: {self.output_dir}")
+        
+    def run_diagnostic(self):
+        """Exécute le diagnostic complet"""
+        logger.info("===== DIAGNOSTIC DE L'EXPORT CSV =====")
+        
+        # 1. Vérifier l'existence des fichiers clés
+        self.check_key_files()
+        
+        # 2. Analyser le contenu du fichier global
+        self.analyze_global_file()
+        
+        # 3. Analyser un échantillon de fichiers de messages reçus
+        self.analyze_received_files()
+        
+        # 4. Examiner le registre unifié
+        self.analyze_registry()
+        
+        # 5. Diagnostiquer les problèmes spécifiques
+        self.diagnose_issues()
+        
+        logger.info("===== FIN DU DIAGNOSTIC =====")
+        
+    def check_key_files(self):
+        """Vérifie l'existence et la taille des fichiers clés"""
+        logger.info("Vérification des fichiers clés...")
+        
+        key_files = [
+            'all_conversations.txt',
+            'toutes_conversations_avec_transcriptions.txt',
+            'messages_recus.txt',
+            'messages_recus_avec_transcriptions.txt',
+            'messages_recus_only.csv',
+            'messages_all.csv',
+            'contacts_messages_simplifies.csv'
+        ]
+        
+        for filename in key_files:
+            filepath = os.path.join(self.output_dir, filename)
+            if os.path.exists(filepath):
+                size = os.path.getsize(filepath)
+                logger.info(f"  - {filename}: {self._format_size(size)}")
+                
+                # Vérification si le fichier est vide ou suspect
+                if size == 0:
+                    logger.error(f"PROBLÈME: {filename} est vide!")
+                elif size < 1000:
+                    logger.warning(f"SUSPECT: {filename} est très petit ({size} octets)")
+            else:
+                logger.warning(f"  - {filename}: MANQUANT")
+    
+    def analyze_global_file(self):
+        """Analyse le contenu du fichier global avec transcriptions"""
+        logger.info("Analyse du fichier global avec transcriptions...")
+        
+        # Fichier principal
+        global_file = os.path.join(self.output_dir, 'toutes_conversations_avec_transcriptions.txt')
+        
+        if not os.path.exists(global_file):
+            logger.error("Le fichier global n'existe pas!")
+            return
+            
+        size = os.path.getsize(global_file)
+        if size < 1000:
+            # Afficher tout le contenu pour les petits fichiers
+            try:
+                with open(global_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                logger.warning(f"Contenu du fichier global (taille suspecte: {size} octets):")
+                logger.warning(f"--- DÉBUT ---\n{content}\n--- FIN ---")
+                
+                # Rechercher des marqueurs spécifiques
+                if '[AUDIO]' in content:
+                    logger.error("Des balises [AUDIO] n'ont pas été remplacées!")
+                
+            except Exception as e:
+                logger.error(f"Erreur lecture fichier global: {str(e)}")
+        else:
+            # Compter les messages, contacts et transcriptions
+            try:
+                with open(global_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    
+                contacts = re.findall(r'===== CONVERSATION: (.*?) =====', content)
+                audio_tags = re.findall(r'\[AUDIO\]', content)
+                transcriptions = re.findall(r'\[TRANSCRIPTION:\s*(.*?)\s*\]', content)
+                
+                logger.info(f"  - Contacts trouvés: {len(set(contacts))}")
+                logger.info(f"  - Tags [AUDIO] restants: {len(audio_tags)}")
+                logger.info(f"  - Transcriptions insérées: {len(transcriptions)}")
+                
+            except Exception as e:
+                logger.error(f"Erreur analyse fichier global: {str(e)}")
+    
+    def analyze_received_files(self):
+        """Analyse les fichiers de messages reçus"""
+        logger.info("Analyse des fichiers de messages reçus...")
+        
+        # Fichier global des messages reçus
+        received_file = os.path.join(self.output_dir, 'messages_recus_avec_transcriptions.txt')
+        
+        if not os.path.exists(received_file):
+            logger.warning("Le fichier global des messages reçus n'existe pas!")
+        else:
+            size = os.path.getsize(received_file)
+            logger.info(f"  - Taille du fichier messages_recus_avec_transcriptions.txt: {self._format_size(size)}")
+            
+            if size < 1000:
+                # Afficher tout le contenu pour les petits fichiers
+                try:
+                    with open(received_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    logger.warning(f"Contenu du fichier des messages reçus (taille suspecte: {size} octets):")
+                    logger.warning(f"--- DÉBUT ---\n{content}\n--- FIN ---")
+                except Exception as e:
+                    logger.error(f"Erreur lecture fichier messages reçus: {str(e)}")
+        
+        # Vérifier quelques fichiers de contact au hasard
+        contact_dirs = [d for d in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, d))]
+        
+        if not contact_dirs:
+            logger.warning("Aucun dossier de contact trouvé!")
+            return
+            
+        # Échantillon de contacts (max 5)
+        sample = contact_dirs[:5]
+        logger.info(f"Analyse de {len(sample)} dossiers de contacts (échantillon)...")
+        
+        for contact in sample:
+            contact_path = os.path.join(self.output_dir, contact)
+            received_file = os.path.join(contact_path, 'messages_recus_avec_transcriptions.txt')
+            
+            if os.path.exists(received_file):
+                size = os.path.getsize(received_file)
+                logger.info(f"  - {contact}: {self._format_size(size)}")
+                
+                # Vérifier la présence de transcriptions
+                if size > 0:
+                    try:
+                        with open(received_file, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        
+                        transcriptions = re.findall(r'\[TRANSCRIPTION:\s*(.*?)\s*\]', content)
+                        audio_tags = re.findall(r'\[AUDIO\]', content)
+                        
+                        if transcriptions:
+                            logger.info(f"    - Transcriptions: {len(transcriptions)}")
+                        if audio_tags:
+                            logger.warning(f"    - Tags [AUDIO] non remplacés: {len(audio_tags)}")
+                    except Exception as e:
+                        logger.error(f"Erreur analyse {contact}: {str(e)}")
+            else:
+                logger.warning(f"  - {contact}: Pas de fichier avec transcriptions")
+    
+    def analyze_registry(self):
+        """Examine le registre unifié pour vérifier les transcriptions"""
+        logger.info("Analyse du registre unifié...")
+        
+        registry_file = os.path.join(self.output_dir, '.unified_registry.json')
+        
+        if not os.path.exists(registry_file):
+            logger.error("Le registre unifié n'existe pas!")
+            return
+            
+        try:
+            with open(registry_file, 'r', encoding='utf-8') as f:
+                registry = json.load(f)
+                
+            # Compter les fichiers audio et les transcriptions
+            audio_files = sum(1 for info in registry.get('files', {}).values() 
+                             if info.get('type') == 'audio')
+            transcriptions = len(registry.get('transcriptions', {}))
+            
+            logger.info(f"  - Fichiers audio: {audio_files}")
+            logger.info(f"  - Transcriptions: {transcriptions}")
+            
+            # Éviter la division par zéro
+            if audio_files > 0:
+                taux = transcriptions / audio_files * 100
+                logger.info(f"  - Taux de transcription: {taux:.1f}%")
+            else:
+                logger.info(f"  - Taux de transcription: N/A (pas de fichiers audio)")
+            
+            # Vérifier quelques exemples de transcriptions
+            trans_sample = list(registry.get('transcriptions', {}).items())[:3]
+            if trans_sample:
+                logger.info("Exemples de transcriptions:")
+                for hash_key, trans_data in trans_sample:
+                    text = trans_data.get('text', '')
+                    audio_path = trans_data.get('audio_path', '')
+                    truncated_text = text[:50] + '...' if len(text) > 50 else text
+                    logger.info(f"  - {os.path.basename(audio_path)}: {truncated_text}")
+        
+        except Exception as e:
+            logger.error(f"Erreur analyse registre: {str(e)}")
+    
+    def diagnose_issues(self):
+        """Diagnostique des problèmes spécifiques et propose des solutions"""
+        logger.info("Diagnostic des problèmes potentiels...")
+        
+        # 1. Vérifier si le fichier global est vide ou trop petit
+        global_file = os.path.join(self.output_dir, 'toutes_conversations_avec_transcriptions.txt')
+        if os.path.exists(global_file) and os.path.getsize(global_file) < 1000:
+            logger.error("PROBLÈME: Le fichier global avec transcriptions est trop petit.")
+            logger.error("SOLUTION: Vérifier la méthode _merge_global_file dans merger.py")
+            logger.error("          Il peut y avoir un problème lors du remplacement des balises [AUDIO].")
+            logger.error("          Exécuter avec --force-merger pour régénérer ce fichier.")
+        
+        # 2. Vérifier si les fichiers de messages reçus sont corrects
+        received_file = os.path.join(self.output_dir, 'messages_recus_avec_transcriptions.txt')
+        if not os.path.exists(received_file) or os.path.getsize(received_file) < 1000:
+            logger.error("PROBLÈME: Le fichier des messages reçus avec transcriptions est manquant ou trop petit.")
+            logger.error("SOLUTION: Vérifier la méthode _merge_received_files dans merger.py")
+            logger.error("          Le fichier source 'messages_recus.txt' peut être manquant.")
+            
+        # 3. Vérifier si le problème vient du CSVExporter
+        csv_file = os.path.join(self.output_dir, 'messages_recus_only.csv')
+        if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10000:
+            logger.warning("Le fichier CSV semble OK en taille mais les exports rapportent 0 contacts/messages.")
+            logger.warning("SOLUTION: Vérifier la méthode export_special_csv dans csv_exporter.py")
+            logger.warning("          Il peut y avoir un problème de parsing du fichier source.")
+            
+        # 4. Vérifier notre nouvel export simplifié
+        simplified_csv = os.path.join(self.output_dir, 'contacts_messages_simplifies.csv')
+        if not os.path.exists(simplified_csv):
+            logger.error("PROBLÈME: Notre nouvel export simplifié n'a pas été généré.")
+            logger.error("SOLUTION: Vérifier que le PhoneNameCSVExporter est bien appelé dans main_enhanced.py")
+            logger.error("          Modifier la méthode export_simplified_csv pour utiliser directement les conversations")
+            logger.error("          au lieu de dépendre des fichiers fusionnés.")
+        
+    def _format_size(self, size):
+        """Formate la taille d'un fichier"""
+        if size < 1024:
+            return f"{size} octets"
+        elif size < 1024 * 1024:
+            return f"{size/1024:.2f} KB"
+        else:
+            return f"{size/(1024*1024):.2f} MB"
+
+if __name__ == "__main__":
+    diagnostic = ExportDiagnostic()
+    diagnostic.run_diagnostic()
+    print("\nPour exécuter un fix automatique, lancez: python fix_export.py")
+ 
+RESUME DES POINTS IMPORTANTS 
+========================================= 
+ 
+1. L'exportateur robuste (robust_exporter.py) est le composant principal pour 
+   generer un export CSV complet avec tous les contacts et transcriptions. 
+ 
+2. Structure du CSV simplifie: 
+   - Colonne A: Contact (prenom ou numero de telephone) 
+   - Colonne B: Messages recus (textes + transcriptions audio) 
+ 
+3. Les transcriptions sont collectees depuis plusieurs sources: 
+   - Fichiers JSON de mapping dans .transcription_mappings 
+   - Registre unifie 
+   - Fichiers .txt 
+ 

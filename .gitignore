@@ -1,0 +1,56 @@
+# Fichiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs
+logs/
+*.log
+
+# Fichiers de transcription volumineux
+*.wav
+*.mp3
+*.opus
+
+# Dossiers spécifiques WhatsApp
+cache/
+
+# Exclure les binaires volumineux
+ffmpeg/bin/*.exe
+*.exe
+*.dll
+
+# Fichiers sensibles et de configuration
+.env
+config.ini
+*.bak
+*_backup*
+*.backup*
+
+# Fichiers volumineux contenant potentiellement des secrets
+code_complet*.txt
+code_source*.txt
+*complet.txt
+
+# Dossiers de données
+duplicates_backup/
+
+# Fichiers de test
+test_*.py
