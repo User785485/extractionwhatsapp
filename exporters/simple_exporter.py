@@ -37,35 +37,56 @@ class SimpleExporter(BaseExporter):
         return self.export_simple(conversations)
     
     def export_simple(self, conversations: Dict[str, List[Dict]]) -> bool:
-        """
-        Export simple : génère CSV et TXT avec Contact | Messages reçus
-        """
-        logger.info("="*60)
-        logger.info("EXPORT SIMPLE - DÉBUT")
-        logger.info("="*60)
+    """
+    Export simple : génère CSV et TXT avec Contact | Messages reçus
+    """
+    logger.info("="*60)
+    logger.info("EXPORT SIMPLE - DÉBUT")
+    logger.info("="*60)
+    
+    try:
+        # Collecter les données à partir des conversations
+        output_data = self._collect_messages_with_transcriptions(conversations)
         
-        try:
-            # Collecter les données
-            output_data = self._collect_messages_with_transcriptions(conversations)
-            
-            if not output_data:
-                logger.warning("Aucune donnée à exporter")
-                return False
-            
-            # Générer les fichiers
-            csv_success = self._write_csv_simple(output_data)
-            txt_success = self._write_txt_simple(output_data)
-            
-            if csv_success and txt_success:
-                logger.info("✅ Export simple terminé avec succès!")
-                return True
-            else:
-                logger.error("Erreur lors de l'export")
-                return False
+        # AMÉLIORATION CRUCIALE: Ajouter les contacts qui ont des transcriptions 
+        # mais ne sont pas dans les conversations
+        from pathlib import Path
+        added_contacts = 0
+        
+        logger.info("Recherche de contacts avec transcriptions non inclus...")
+        for contact_dir in Path(self.output_dir).iterdir():
+            if contact_dir.is_dir() and not contact_dir.name.startswith('.'):
+                contact_name = contact_dir.name
                 
-        except Exception as e:
-            logger.error(f"Erreur fatale dans export simple: {str(e)}", exc_info=True)
+                # Vérifier si le contact a des transcriptions mais n'est pas dans l'export
+                trans_dir = contact_dir / "transcriptions"
+                if trans_dir.exists() and contact_name not in output_data:
+                    txt_files = list(trans_dir.glob("*.txt"))
+                    if txt_files:
+                        output_data[contact_name] = f"[Contact avec {len(txt_files)} transcriptions, mais sans conversation]"  
+                        added_contacts += 1
+                        logger.info(f"Ajout du contact manquant: {contact_name} ({len(txt_files)} transcriptions)")
+        
+        logger.info(f"Contacts ajoutés via le scan de répertoire: {added_contacts}")
+        
+        if not output_data:
+            logger.warning("Aucune donnée à exporter")
             return False
+        
+        # Générer les fichiers
+        csv_success = self._write_csv_simple(output_data)
+        txt_success = self._write_txt_simple(output_data)
+        
+        if csv_success and txt_success:
+            logger.info(f"✅ Export simple terminé avec succès! Total contacts: {len(output_data)}")
+            return True
+        else:
+            logger.error("Erreur lors de l'export")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Erreur fatale dans export simple: {str(e)}", exc_info=True)
+        return False
     
     def _collect_messages_with_transcriptions(self, conversations: Dict[str, List[Dict]]) -> Dict[str, str]:
         """Collecte TOUS les contacts, même sans messages reçus"""
