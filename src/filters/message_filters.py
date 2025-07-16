@@ -4,13 +4,13 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from ..config.schemas import FilterConfig
-from .base_filter import BaseFilter, FilterResult
-from .date_filter import DateFilter
-from .contact_filter import ContactFilter
-from .content_filter import ContentFilter, ContentTypeFilter
-from .composite_filter import CompositeFilter, FilterMode
-from .message_count_filter import MessageCountFilter
+from config.schemas import FilterConfig
+from filters.base_filter import BaseFilter, FilterResult
+from filters.date_filter import DateFilter
+from filters.contact_filter import ContactFilter
+from filters.content_filter import ContentFilter, ContentTypeFilter
+from filters.composite_filter import CompositeFilter, FilterMode
+from filters.message_count_filter import MessageCountFilter
 
 logger = logging.getLogger(__name__)
 

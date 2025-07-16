@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "name": "single_file",
+      "success": true,
+      "error": null,
+      "duration": 0.27019500732421875
+    },
+    {
+      "name": "folder",
+      "success": true,
+      "error": null,
+      "duration": 67.6512246131897
+    },
+    {
+      "name": "batch_100",
+      "success": true,
+      "error": null,
+      "duration": 4.546833515167236
+    },
+    {
+      "name": "performance",
+      "success": true,
+      "error": null,
+      "duration": null
+    }
+  ],
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "performance": {
+    "sequential_time": 3.1653010845184326,
+    "parallel_time": 0.9675214290618896,
+    "speedup": 3.2715565665429382,
+    "files_count": 20
+  }
+}

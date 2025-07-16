@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional, Union
 import configparser
 from copy import deepcopy
 
-from .schemas import AppConfig, PathConfig, TranscriptionConfig, FilterConfig, ExportConfig, ProcessingConfig
-from .defaults import DEFAULT_CONFIG, LEGACY_CONFIG_MAPPING
+from config.schemas import AppConfig, PathConfig, TranscriptionConfig, FilterConfig, ExportConfig, ProcessingConfig
+from config.defaults import DEFAULT_CONFIG, LEGACY_CONFIG_MAPPING
 
 
 class ConfigManager:

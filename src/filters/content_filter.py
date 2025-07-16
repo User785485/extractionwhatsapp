@@ -3,8 +3,8 @@
 import re
 from typing import List, Optional, Set, Pattern
 
-from .base_filter import BaseFilter, FilterResult
-from ..core.models import Message, MediaType
+from filters.base_filter import BaseFilter, FilterResult
+from core.models import Message, MediaType
 
 
 class ContentFilter(BaseFilter[Message]):

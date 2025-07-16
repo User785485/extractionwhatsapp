@@ -1,0 +1,22 @@
+{
+  "html_dir": "C:\\Users\\Moham\\Downloads\\iPhone_20250604173341\\WhatsApp",
+  "media_dir": "C:\\ProgramData\\Wondershare\\MobileTrans\\ExportMedia\\20250605021808",
+  "output_dir": "C:\\Users\\Moham\\Desktop\\DataLeads",
+  "openai_key": "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",
+  "transcribe_sent": true,
+  "transcribe_received": true,
+  "max_retries": 5,
+  "parallel_transcriptions": 2,
+  "enable_date_filter": false,
+  "after_date": "2025-07-16",
+  "include_sent": true,
+  "include_received": true,
+  "include_text": true,
+  "include_audio": true,
+  "include_video": true,
+  "include_images": true,
+  "min_messages": 0,
+  "processing_mode": "normal",
+  "debug_mode": false,
+  "verbose_logging": false
+}

@@ -2,8 +2,8 @@
 
 from typing import Optional
 
-from .base_filter import BaseFilter, FilterResult
-from ..core.models import Contact
+from filters.base_filter import BaseFilter, FilterResult
+from core.models import Contact
 
 
 class MessageCountFilter(BaseFilter[Contact]):

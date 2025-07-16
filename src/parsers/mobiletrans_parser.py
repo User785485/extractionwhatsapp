@@ -10,9 +10,9 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import logging
 
-from .base_parser import BaseParser
-from ..core.models import Contact, Message, MessageDirection, MediaType
-from ..core.exceptions import ParsingError
+from parsers.base_parser import BaseParser
+from core.models import Contact, Message, MessageDirection, MediaType
+from core.exceptions import ParsingError
 
 logger = logging.getLogger(__name__)
 

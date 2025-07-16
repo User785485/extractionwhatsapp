@@ -3,8 +3,8 @@
 from datetime import datetime
 from typing import Optional, Union
 
-from .base_filter import BaseFilter, FilterResult
-from ..core.models import Message, Contact
+from filters.base_filter import BaseFilter, FilterResult
+from core.models import Message, Contact
 
 
 class DateFilter(BaseFilter[Union[Message, Contact]]):

@@ -1,6 +1,6 @@
 """Core functionality module"""
 
-from .models import (
+from core.models import (
     Contact,
     Message,
     MessageDirection,
@@ -8,9 +8,9 @@ from .models import (
     ProcessingStats,
     TranscriptionResult
 )
-from .database import CacheDatabase
-from .state_manager import StateManager
-from .exceptions import (
+from core.database import CacheDatabase
+from core.state_manager import StateManager
+from core.exceptions import (
     WhatsAppExtractorError,
     ConfigurationError,
     ParsingError,

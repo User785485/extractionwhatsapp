@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import List, TypeVar, Generic, Optional, Dict, Any
 
-from .base_filter import BaseFilter, FilterResult
+from filters.base_filter import BaseFilter, FilterResult
 
 T = TypeVar('T')
 

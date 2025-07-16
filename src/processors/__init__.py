@@ -1,8 +1,8 @@
 """Processors module for media and data processing"""
 
-from .media_processor import MediaProcessor
-from .audio_converter import AudioConverter
-from .transcription import (
+from processors.media_processor import MediaProcessor
+from processors.audio_converter import AudioConverter
+from processors.transcription import (
     BaseTranscriber,
     WhisperTranscriber,
     BatchTranscriptionProcessor

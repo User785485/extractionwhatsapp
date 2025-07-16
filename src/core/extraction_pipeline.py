@@ -9,14 +9,14 @@ import threading
 import queue
 import time
 
-from ..config.config_manager import ConfigManager
-from ..core.database import CacheDatabase
-from ..parsers import WhatsAppParser
-from ..processors.media_processor import MediaProcessor
-from ..processors.transcription.batch_processor import BatchTranscriptionProcessor
-from ..filters.message_filters import MessageFilterProcessor
-from ..exporters import CSVExporter, ExcelExporter, JSONExporter
-from ..utils.logger import WhatsAppLogger
+from config.config_manager import ConfigManager
+from core.database import CacheDatabase
+from parsers import WhatsAppParser
+from processors.media_processor import MediaProcessor
+from processors.transcription.batch_processor import BatchTranscriptionProcessor
+from filters.message_filters import MessageFilterProcessor
+from exporters import CSVExporter, ExcelExporter, JSONExporter
+from utils.logger import WhatsAppLogger
 
 logger = logging.getLogger(__name__)
 

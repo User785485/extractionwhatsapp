@@ -3,8 +3,8 @@
 import re
 from typing import List, Optional, Union, Pattern
 
-from .base_filter import BaseFilter, FilterResult
-from ..core.models import Message, Contact
+from filters.base_filter import BaseFilter, FilterResult
+from core.models import Message, Contact
 
 
 class ContactFilter(BaseFilter[Union[Message, Contact]]):

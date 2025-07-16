@@ -7,13 +7,13 @@ from typing import Optional
 import click
 from datetime import datetime
 
-from .config import ConfigManager
-from .core import CacheDatabase, StateManager
-from .parsers import WhatsAppHTMLParser
-from .processors import MediaProcessor, AudioConverter
-from .processors.transcription import WhisperTranscriber, BatchTranscriptionProcessor
-from .filters import DateFilter, ContactFilter, MessageCountFilter, CompositeFilter, FilterMode
-from .utils import setup_logging, ProgressTracker
+from config import ConfigManager
+from core import CacheDatabase, StateManager
+from parsers import WhatsAppHTMLParser
+from processors import MediaProcessor, AudioConverter
+from processors.transcription import WhisperTranscriber, BatchTranscriptionProcessor
+from filters import DateFilter, ContactFilter, MessageCountFilter, CompositeFilter, FilterMode
+from utils import setup_logging, ProgressTracker
 
 
 @click.group()

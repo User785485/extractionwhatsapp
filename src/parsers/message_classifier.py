@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Dict
 from bs4 import BeautifulSoup, Tag
 import logging
 
-from ..core.models import MessageDirection
+from core.models import MessageDirection
 
 logger = logging.getLogger(__name__)
 

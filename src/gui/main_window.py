@@ -38,6 +38,7 @@ except ImportError as e:
     WhatsAppHTMLParser = None
 
 from src.gui.threading_manager import ThreadingManager, create_extraction_task, create_transcription_task
+from src.gui.enhanced_extraction_tab import EnhancedExtractionTab
 from src.utils.logger import setup_logger, get_logger, log_action, log_button_click, log_error
 
 
@@ -107,6 +108,7 @@ class WhatsAppExtractorGUI:
         self.create_progress_tab()
         self.create_results_tab()
         self.create_debug_tab()
+        self.create_enhanced_extraction_tab()
         
         # Barre de statut
         self.create_status_bar()
@@ -678,6 +680,18 @@ class WhatsAppExtractorGUI:
                   command=self.clear_debug_console).pack(side='left', padx=5)
         ttk.Button(debug_commands, text="Exporter Logs Debug", 
                   command=self.export_debug_logs).pack(side='left', padx=5)
+        
+    def create_enhanced_extraction_tab(self):
+        """Création de l'onglet d'extraction améliorée"""
+        # Créer une instance de EnhancedExtractionTab
+        self.enhanced_extraction_tab = EnhancedExtractionTab(
+            self.notebook,
+            self.config_manager if hasattr(self, 'config_manager') else None,
+            self.threading_manager if hasattr(self, 'threading_manager') else None
+        )
+        
+        # Ajouter l'onglet au notebook
+        self.notebook.add(self.enhanced_extraction_tab.frame, text="Extraction Avancée")
         
     def create_status_bar(self):
         """Création de la barre de statut"""

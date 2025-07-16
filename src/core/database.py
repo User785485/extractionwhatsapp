@@ -9,8 +9,8 @@ from datetime import datetime
 import hashlib
 import logging
 
-from .models import Contact, Message, TranscriptionResult, MessageDirection, MediaType
-from .exceptions import DatabaseError
+from core.models import Contact, Message, TranscriptionResult, MessageDirection, MediaType
+from core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 

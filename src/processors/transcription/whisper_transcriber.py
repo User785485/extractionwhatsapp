@@ -9,9 +9,9 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-from .base_transcriber import BaseTranscriber
-from ...core.models import TranscriptionResult
-from ...core.exceptions import TranscriptionError, APIError
+from processors.transcription.base_transcriber import BaseTranscriber
+from core.models import TranscriptionResult
+from core.exceptions import TranscriptionError, APIError
 
 logger = logging.getLogger(__name__)
 

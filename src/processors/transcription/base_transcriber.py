@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from ...core.models import TranscriptionResult
+from core.models import TranscriptionResult
 
 
 class BaseTranscriber(ABC):

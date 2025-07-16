@@ -1,0 +1,821 @@
+{
+  "timestamp": "2025-07-16 10:58:21",
+  "stats": {
+    "total_files": 100,
+    "processed": 100,
+    "with_audio": 0,
+    "transcribed": 0,
+    "errors": 0
+  },
+  "options": {
+    "transcribe": false,
+    "export_formats": [
+      "csv"
+    ],
+    "language": "fr",
+    "parallel": true,
+    "media_path": "C:\\ProgramData\\Wondershare\\MobileTrans\\ExportMedia\\20250710235519"
+  },
+  "results": [
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (418) 550-4053.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (438) 304-7483.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (469) 559-3176.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 0,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (514) 247-8786.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (514) 473-2352.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 5,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (514) 607-8940.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 0,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (514) 632-0612.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (514) 660-3641.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (514) 771-7011.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (516) 852-6657.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (819) 921-8101.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+1 (917) 724-9317.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 0,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 601-001776.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 8,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 605-501011.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 607-167619.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 10,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 611-999991.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 623-265006.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 12,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 623-344696.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 5,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 639-317504.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 651-463913.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 655-460988.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 655-863315.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 660-837317.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 661-370900.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 661-926170.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 661-931780.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 662-370715.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 664-163808.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 665-999100.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 666-101043.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 5,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 667-787020.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 668-353407.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 669-922773.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 5,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 670-501533.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 673-631012.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 673-959310.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 679-826790.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 684-924555.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 6,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 691-557767.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 694-571136.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 694-636549.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 699-395928.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 0,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 700-185604.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 700-709120.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 0,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 772-407981.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+212 777-054193.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 540 77 72 54.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 542 45 00 37.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 549 14 71 76.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 549 93 76 73.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 551 90 29 61.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 8,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 552 65 72 27.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 553 31 78 18.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 5,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 554 75 55 87.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 555 16 01 15.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 556 10 93 37.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 556 36 39 89.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 557 99 38 44.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 559 35 37 76.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 562 08 65 89.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 656 61 22 87.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 8,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 657 10 46 77.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 0,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 657 49 99 65.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 666 16 97 42.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 666 97 30 88.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 10,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 675 53 13 48.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 697 66 88 97.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 697 77 25 53.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 770 57 32 28.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 770 86 22 37.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 770 94 58 08.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 777 49 38 65.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 781 08 80 61.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 781 89 82 10.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 18,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 783 33 40 63.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 792 83 60 04.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 792 91 09 39.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 794 87 35 06.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 12,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 797 31 12 72.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 797 40 36 26.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 798 69 76 59.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+213 798 93 80 06.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+216 20 454 679.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+216 21 524 250.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 6,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+216 26 449 037.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 68,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+216 52 101 374.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+216 56 711 682.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+216 98 771 049.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 70 976 18 52.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 4,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 76 441 94 27.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 3,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 77 050 42 87.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 77 157 82 90.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 77 339 28 58.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 77 395 96 08.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 6,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 77 523 35 22.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 6,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 77 552 51 52.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 78 190 58 16.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+221 78 604 86 01.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 1,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+222 34 80 62 19.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    },
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\+223 82 82 32 37.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 6,
+      "audio_count": 0
+    }
+  ]
+}

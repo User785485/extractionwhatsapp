@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-07-16 10:57:08",
+  "stats": {
+    "total_files": 1,
+    "processed": 1,
+    "with_audio": 0,
+    "transcribed": 0,
+    "errors": 0
+  },
+  "options": {
+    "transcribe": false,
+    "export_formats": [
+      "csv",
+      "text"
+    ],
+    "language": "fr",
+    "parallel": false,
+    "media_path": "C:\\ProgramData\\Wondershare\\MobileTrans\\ExportMedia\\20250710235519"
+  },
+  "results": [
+    {
+      "file": "C:\\Users\\Moham\\Downloads\\iPhone_20250605021808\\WhatsApp\\Test.html",
+      "success": true,
+      "has_audio": false,
+      "transcribed": false,
+      "messages_count": 2,
+      "audio_count": 0
+    }
+  ]
+}

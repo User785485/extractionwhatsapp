@@ -8,10 +8,10 @@ from typing import List, Dict, Optional, Callable, Any
 import logging
 from datetime import datetime
 
-from .base_transcriber import BaseTranscriber
-from ...core.models import TranscriptionResult
-from ...core.database import CacheDatabase
-from ...core.exceptions import TranscriptionError
+from processors.transcription.base_transcriber import BaseTranscriber
+from core.models import TranscriptionResult
+from core.database import CacheDatabase
+from core.exceptions import TranscriptionError
 
 logger = logging.getLogger(__name__)
 

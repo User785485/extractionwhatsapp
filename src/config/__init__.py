@@ -1,7 +1,7 @@
 """Configuration management module"""
 
-from .config_manager import ConfigManager
-from .schemas import (
+from config.config_manager import ConfigManager
+from config.schemas import (
     PathConfig,
     TranscriptionConfig,
     FilterConfig,

@@ -1,9 +1,9 @@
 """Parsers module for extracting data from various sources"""
 
-from .base_parser import BaseParser
-from .html_parser import WhatsAppHTMLParser
-from .message_classifier import MessageClassifier
-from .mobiletrans_parser import MobileTransParser
+from parsers.base_parser import BaseParser
+from parsers.html_parser import WhatsAppHTMLParser
+from parsers.message_classifier import MessageClassifier
+from parsers.mobiletrans_parser import MobileTransParser
 
 # Backward compatibility alias - use MobileTransParser for real files
 WhatsAppParser = MobileTransParser

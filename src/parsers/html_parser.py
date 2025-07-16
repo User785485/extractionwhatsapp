@@ -9,10 +9,10 @@ import logging
 from bs4 import BeautifulSoup, Tag
 import chardet
 
-from .base_parser import BaseParser
-from .message_classifier import MessageClassifier
-from ..core.models import Contact, Message, MessageDirection, MediaType
-from ..core.exceptions import ParsingError
+from parsers.base_parser import BaseParser
+from parsers.message_classifier import MessageClassifier
+from core.models import Contact, Message, MessageDirection, MediaType
+from core.exceptions import ParsingError
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,126 @@
+{
+  "name": "Claude WhatsApp Tools",
+  "version": "1.0.0",
+  "description": "Specialized toolkit for Claude's WhatsApp processing workflows",
+  "created": "2025-07-16",
+  "author": "Claude Creator",
+  
+  "tools": {
+    "parse_received": {
+      "description": "Extract ONLY received messages from WhatsApp HTML exports",
+      "supports": ["mobiletrans", "whatsapp_web"],
+      "output": "JSON with messages and metadata"
+    },
+    "find_media": {
+      "description": "Intelligent media detection and mapping",
+      "supports": [".opus", ".m4a", ".mp3", ".ogg", ".jpg", ".png", ".mp4"],
+      "features": ["contact_mapping", "whatsapp_patterns", "voice_detection"]
+    },
+    "convert_audio": {
+      "description": "Universal audio converter optimized for Whisper",
+      "presets": {
+        "whisper": "16kHz mono 128k (optimal for API)",
+        "standard": "44.1kHz stereo 192k",
+        "low": "16kHz mono 96k (economical)"
+      },
+      "requires": "FFmpeg"
+    },
+    "transcribe": {
+      "description": "Whisper API interface with intelligent caching",
+      "features": ["cache_by_hash", "retry_backoff", "batch_processing"],
+      "requires": "OPENAI_API_KEY"
+    },
+    "analyze": {
+      "description": "Data analysis and multi-format report generation",
+      "outputs": ["markdown", "json", "csv", "text"],
+      "analyses": ["contacts", "temporal", "content", "media", "patterns"]
+    },
+    "process_all": {
+      "description": "Complete automated pipeline",
+      "pipeline": [
+        "parse_html",
+        "find_media", 
+        "convert_audio",
+        "transcribe",
+        "analyze_and_report"
+      ]
+    }
+  },
+  
+  "defaults": {
+    "cache_dir": "claude_tools/cache",
+    "logs_dir": "claude_tools/logs", 
+    "output_dir": "claude_tools/output",
+    "audio_preset": "whisper",
+    "report_format": "markdown",
+    "parallel_workers": 4,
+    "transcription_workers": 3
+  },
+  
+  "dependencies": {
+    "required": {
+      "python": ">=3.8",
+      "beautifulsoup4": "For HTML parsing",
+      "pathlib": "File operations",
+      "json": "Data serialization",
+      "datetime": "Timestamp handling"
+    },
+    "optional": {
+      "openai": "For Whisper API transcription",
+      "ffmpeg": "For audio conversion",
+      "colorama": "Colored console output (Windows)"
+    }
+  },
+  
+  "limits": {
+    "whisper_file_size_mb": 25,
+    "transcription_timeout_sec": 300,
+    "batch_processing_timeout_sec": 3600,
+    "max_parallel_api_calls": 3
+  },
+  
+  "patterns": {
+    "whatsapp_audio": [
+      "PTT-\\d{8}-WA\\d+",
+      "AUD-\\d{8}-WA\\d+", 
+      "MSG-\\d{8}-\\d+"
+    ],
+    "whatsapp_image": [
+      "IMG-\\d{8}-WA\\d+",
+      "IMAGE-\\d{4}-\\d{2}-\\d{2}"
+    ],
+    "whatsapp_video": [
+      "VID-\\d{8}-WA\\d+",
+      "VIDEO-\\d{4}-\\d{2}-\\d{2}"
+    ]
+  },
+  
+  "optimization": {
+    "cache_enabled": true,
+    "cache_max_age_days": 30,
+    "log_rotation_days": 7,
+    "temp_file_cleanup": true,
+    "progress_reporting": true
+  },
+  
+  "workflow_templates": {
+    "quick_analysis": {
+      "description": "Fast analysis without transcription",
+      "steps": ["parse", "find_media", "analyze"],
+      "skip": ["convert", "transcribe"]
+    },
+    "full_processing": {
+      "description": "Complete pipeline with transcription",
+      "steps": ["parse", "find_media", "convert", "transcribe", "analyze"]
+    },
+    "audio_focus": {
+      "description": "Focus on audio/voice messages only",
+      "filters": ["voice_only"],
+      "steps": ["find_media", "convert", "transcribe", "analyze"]
+    },
+    "forensic": {
+      "description": "Detailed forensic analysis",
+      "features": ["detailed_logs", "preserve_metadata", "comprehensive_reports"]
+    }
+  }
+}

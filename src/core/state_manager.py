@@ -6,9 +6,9 @@ from pathlib import Path
 from datetime import datetime
 import logging
 
-from .database import CacheDatabase
-from .models import ProcessingStats, Contact, Message
-from .exceptions import DatabaseError
+from core.database import CacheDatabase
+from core.models import ProcessingStats, Contact, Message
+from core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 

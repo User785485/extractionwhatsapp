@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from ..core.models import Contact, Message
+from core.models import Contact, Message
 
 
 class BaseParser(ABC):

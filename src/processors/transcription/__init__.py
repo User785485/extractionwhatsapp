@@ -1,8 +1,8 @@
 """Transcription processing module"""
 
-from .base_transcriber import BaseTranscriber
-from .whisper_transcriber import WhisperTranscriber
-from .batch_processor import BatchTranscriptionProcessor
+from processors.transcription.base_transcriber import BaseTranscriber
+from processors.transcription.whisper_transcriber import WhisperTranscriber
+from processors.transcription.batch_processor import BatchTranscriptionProcessor
 
 __all__ = [
     'BaseTranscriber',

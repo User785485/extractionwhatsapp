@@ -1,0 +1,64 @@
+[
+  {
+    "contact": "demo_contact_audio",
+    "file": "..\\output\\demo_contact_audio.html",
+    "format": "mobiletrans",
+    "received_count": 4,
+    "messages": [
+      {
+        "timestamp": "2025-07-16T10:00:00",
+        "content": "Bonjour, voici mon premier message vocal",
+        "has_media": true,
+        "media": {
+          "type": "audio",
+          "href": "file:///demo/audio1.opus",
+          "filename": "audio1.opus",
+          "text": "audio1.opus"
+        },
+        "raw_html": "<p class=\"triangle-isosceles\">Bonjour, voici mon premier message vocal</p>..."
+      },
+      {
+        "timestamp": "2025-07-16T10:05:00",
+        "content": "Et voici un deuxième message audio avec plus de détails",
+        "has_media": true,
+        "media": {
+          "type": "audio",
+          "href": "file:///demo/audio2.opus",
+          "filename": "audio2.opus",
+          "text": "audio2.opus"
+        },
+        "raw_html": "<p class=\"triangle-isosceles\">Et voici un deuxième message audio avec plus de détails</p>..."
+      },
+      {
+        "timestamp": "2025-07-16T10:10:00",
+        "content": "Message texte normal sans audio",
+        "has_media": false,
+        "media": null,
+        "raw_html": "<p class=\"triangle-isosceles\">Message texte normal sans audio</p>..."
+      },
+      {
+        "timestamp": "2025-07-16T10:15:00",
+        "content": "Troisième audio important",
+        "has_media": true,
+        "media": {
+          "type": "audio",
+          "href": "file:///demo/audio3.opus",
+          "filename": "audio3.opus",
+          "text": "audio3.opus"
+        },
+        "raw_html": "<p class=\"triangle-isosceles\">Troisième audio important</p>..."
+      }
+    ],
+    "stats": {
+      "total": 4,
+      "with_media": 3,
+      "text_only": 1,
+      "media_types": {
+        "audio": 3
+      },
+      "total_words": 24,
+      "avg_words_per_message": 6.0
+    },
+    "parsed_at": "2025-07-16T10:26:10.700356"
+  }
+]

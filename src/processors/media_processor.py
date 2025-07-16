@@ -7,10 +7,10 @@ import logging
 import re
 from collections import defaultdict
 
-from ..core.models import Contact, MessageDirection, MediaType
-from ..core.database import CacheDatabase
-from ..core.exceptions import MediaProcessingError
-from ..utils.file_utils import sanitize_filename, create_unique_filename
+from core.models import Contact, MessageDirection, MediaType
+from core.database import CacheDatabase
+from core.exceptions import MediaProcessingError
+from utils.file_utils import sanitize_filename, create_unique_filename
 
 logger = logging.getLogger(__name__)
 

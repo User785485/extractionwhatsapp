@@ -7,8 +7,8 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
-from ..core.exceptions import MediaProcessingError
-from ..utils.file_utils import create_unique_filename
+from core.exceptions import MediaProcessingError
+from utils.file_utils import create_unique_filename
 
 logger = logging.getLogger(__name__)
 
